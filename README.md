@@ -81,8 +81,6 @@ if opener.server_validate() is True:
 如果对这个项目感兴趣，可以提意见或者参与改进哦！
 	如果有什么疑问可以直接pull，或者联系邮箱：405935987@163.com
 	
-<<<<<<< HEAD
+
 本项目地址：https://github.com/ZSAIm/downloader/
-=======
-本项目地址：https://github.com/ZSAIm/downloader/
->>>>>>> 1a923d3c91b09af84d6fc0749b374ac66b206033
+
