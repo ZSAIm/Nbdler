@@ -1,0 +1,17 @@
+README.md
+setup.py
+downloader/DLManager.py
+downloader/DLThread.py
+downloader/___progressbar.py
+downloader/__init__.py
+downloader/downloader.py
+downloader/progress.py
+downloader.egg-info/PKG-INFO
+downloader.egg-info/SOURCES.txt
+downloader.egg-info/dependency_links.txt
+downloader.egg-info/not-zip-safe
+downloader.egg-info/top_level.txt
+downloader/lib/FileInfo.py
+downloader/lib/URLinfo.py
+downloader/lib/__init__.py
+downloader/lib/contentType.py

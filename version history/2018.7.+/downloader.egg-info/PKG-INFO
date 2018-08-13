@@ -1,0 +1,13 @@
+Metadata-Version: 1.1
+Name: downloader
+Version: 0.1
+Summary: not bad downloader
+Home-page: https://github.com/ZSAIm/downloader
+Author: ZSAIm
+Author-email: 405935987@163.com
+License: UNKNOWN
+Description: # downloader
+        multi-server, auto-range, completeness-validate...
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 2.7
