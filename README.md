@@ -5,9 +5,14 @@ multi-server, auto-range, completeness-validate...
 # 不错的下载器
 	* 【支持多服务器下载】
 	* 【自动分片控制管理】
-	* 【自动连接超时重试】
+	* 【超时自动连接重试】
 	* 【文件损坏尝试修复】
 
+## 更新说明
+### 最新版本 1.1
+	1) 解决下载速度不准确的问题。
+	2) 解决若干bug。
+## 程序说明
 ### 基本功能： 
 	断点续传 、 分片下载 、 等各种基本功能。
 
@@ -17,7 +22,7 @@ multi-server, auto-range, completeness-validate...
 ### 安装模块
 	无
 
-## 基本结构
+### 基本结构
                                                 /--> Progress 
                                /----> progress ----> GlobalProgress           TaskAssign <-- WaitLock -> Progress 
 	downloader -> DLManager --|          									   
@@ -50,7 +55,7 @@ while True:
         print 'done!'
         break
 ```
-### 来一个多服务器的栗子
+### 一个多服务器下载的栗子
 ```ruby
 from downloader import downloader
 import time
@@ -74,13 +79,13 @@ if opener.server_validate() is True:
             break
 
 ```
-
-项目文件夹 ./not-bad-downloader/example/ 下还有'很多'实现相关功能栗子，可以取参考下。
+### 更多例子：
+项目文件夹 ./not-bad-downloader/examples/
 
 ***
 如果对这个项目感兴趣，可以提意见或者参与改进哦！
-	如果有什么疑问可以直接pull，或者联系邮箱：405935987@163.com
+	如果有什么疑问可以联系邮箱：405935987@163.com
 	
 
-本项目地址：https://github.com/ZSAIm/not-bad-downloader
+本项目地址：https://github.com/ZSAIm/not-bad-downloader/
 

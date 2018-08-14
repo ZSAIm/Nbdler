@@ -47,8 +47,8 @@ class DLManager(object):
 
         if kwargs.get('block_size') is None:
             if self.file.size <= 10*1024*1024:
-                self.BLOCK_SIZE = 64 * 1024
-            elif self.file.size <= 100*1024*1024:
+                self.BLOCK_SIZE = 256 * 1024
+            elif self.file.size <= 50*1024*1024:
                 self.BLOCK_SIZE = 512 * 1024
             else:
                 self.BLOCK_SIZE = 1024 * 1024  # 1MB
@@ -108,7 +108,6 @@ class DLManager(object):
 
     def __getdata__(self, _progress, server=None, MaxBuffSize=1024 * 1024 * 5):
 
-        _progress.wait.acquire()
 
         if server is None:
             server = _progress.server
@@ -243,7 +242,7 @@ class DLManager(object):
                 break
         try:
             sock.shutdown(socket.SHUT_RDWR)
-        except:
+        finally:
             pass
 
 
@@ -304,14 +303,12 @@ class DLManager(object):
             else:
                 if len(self.GlobalProg.queue) < len(self.servers):
                     _server, _range = self.task.assign()
-                    # print _range
                     self.__build_download(_server, _range)
                 else:
                     if self.thread_count > self.GlobalProg.getOnlineQuantity():
-                        # if self.getLeft() / self.file.size < 0.5:
-                        _server, _range = self.task.assign()
-                        # print _range
-                        self.__build_download(_server, _range)
+                        if self.getLeft() / self.file.size < 0.5:
+                            _server, _range = self.task.assign()
+                            self.__build_download(_server, _range)
                 # lef = self.getLeft()
                 # print lef, self.GlobalProg.getOnlineQuantity(), self.getinsSpeed()/1024
 
@@ -326,13 +323,13 @@ class DLManager(object):
                 self.file.make_file()
                 self.auto_assign_thread = threading.Thread(target=self.__auto_AssignTask_)
                 self.auto_assign_thread.start()
-                # self.GlobalProg.launch_monitor()
+                self.GlobalProg.launch_monitor()
             else:
 
                 self.GlobalProg._continue()
                 self.auto_assign_thread = threading.Thread(target=self.__auto_AssignTask_)
                 self.auto_assign_thread.start()
-                # self.GlobalProg.launch_monitor()
+                self.GlobalProg.launch_monitor()
 
         self.GlobalProg.pauseFlag = False
 
@@ -385,7 +382,7 @@ class DLManager(object):
 
             self.launch(_prog)
 
-        # _Global_prog.launch_monitor()
+        _Global_prog.launch_monitor()
 
         while True:
             if _Global_prog.isDone() is True:
@@ -417,7 +414,7 @@ class DLManager(object):
             _prog = _Global_prog.append_progress(_server, _range)
             self.launch(_prog)
 
-        # _Global_prog.launch_monitor()
+        _Global_prog.launch_monitor()
 
         while True:
             if _Global_prog.isDone() is True:
@@ -460,7 +457,7 @@ class DLManager(object):
         self.auto_assign_thread = threading.Thread(target=self.__auto_AssignTask_)
         self.auto_assign_thread.start()
 
-        # self.GlobalProg.launch_monitor()
+        self.GlobalProg.launch_monitor()
 
     def dump(self):
 

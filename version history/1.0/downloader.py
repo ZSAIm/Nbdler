@@ -112,3 +112,32 @@ class downloader:
             # return None
         else:
             return None
+
+if __name__ == '__main__':
+
+
+    from ___progressbar import progressBar
+
+    _list = []
+    _bar = []
+    for index in range(3):
+        _list.append(downloader())
+        _list[-1].config(file_name=str(index), thread_count=10, force=True)
+        _list[-1].add_server('http://xiazai.xiazaiba.com/Soft/T/TIM_2.2.0_XiaZaiBa.zip')
+        _list[-1].add_server('http://dblt.xiazaiba.com/Soft/T/TIM_2.2.0_XiaZaiBa.zip')
+
+        a = _list[-1].open()
+        a.start()
+        _list[-1] = a
+        _bar.append(progressBar(index, a.file.size))
+
+
+    while True:
+        _end = True
+        for i, j in enumerate(_list):
+            if j.isDone() is False:
+                _end = False
+                _bar[i].update(j.file.size - j.getLeft(), str(int(j.getinsSpeed() / 1024)) + ' kb/s')
+        time.sleep(0.5)
+        if _end is True:
+            break
