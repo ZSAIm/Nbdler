@@ -115,13 +115,12 @@ class DLManager(object):
 
         _empty_count = 0
 
-        sock = None
         ip = socket.gethostbyname(server.host)
-        if server.protocol == 'https':
+        if server.https:
             sock = ssl.wrap_socket(socket.socket())
-        elif server.protocol == 'http':
+        else:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        assert sock is not None
+
         sock.settimeout(5)
         try:
             sock.connect((ip, server.port))
@@ -161,19 +160,19 @@ class DLManager(object):
                 return
 
         _headers = buff[:(buff.index('\r\n\r\n'))]
-        _status, _headers_dict = self.parse_HTTPMessage(_headers)
+        _header_top, _headers_dict = self.__plain_header_(_headers)
 
-        if _status == 302:
+        if '302' in _header_top:
             server.reload_validate(_headers_dict['location'])
             sock.shutdown(socket.SHUT_RDWR)
             self.__retry__(_progress)
             return
-        elif _status == 404:
+        elif '404' in _header_top:
             sock.shutdown(socket.SHUT_RDWR)
             time.sleep(3)
             self.__retry__(_progress)
             return
-        elif _status != 206:
+        elif '206' not in _header_top:
             sock.shutdown(2)
             time.sleep(5)
             self.__retry__(_progress)
@@ -248,15 +247,16 @@ class DLManager(object):
             pass
 
 
-    def parse_HTTPMessage(self, HTTPmsg):
+
+
+    def __plain_header_(self, headers):
 
         headers_dict = {}
-        _headers = HTTPmsg.split('\r\n')
-        _status = int(_headers[0].split(' ')[1])
+        # print headers
+        _header_ = headers.split('\r\n')
+        _header_top = _header_[0].strip()
 
-        for i in _headers[1:]:
-            if i == '':
-                continue
+        for i in _header_[1:]:
             _name = i[:i.index(':')].lower().strip()
             _value = i[i.index(':') + 1:].lstrip()
 
@@ -265,9 +265,7 @@ class DLManager(object):
             else:
                 headers_dict[_name] = _value
 
-        return _status, headers_dict
-
-
+        return _header_top, headers_dict
 
     def getinsSpeed(self):
         return self.GlobalProg.getinsSpeed()
@@ -283,6 +281,7 @@ class DLManager(object):
     def __auto_AssignTask_(self):
         while True:
             if self.GlobalProg.pauseFlag is True:
+
                 break
             if self.isDone() is True:
                 # print self.GlobalProg.queue.keys()
@@ -308,7 +307,7 @@ class DLManager(object):
                     # print _range
                     self.__build_download(_server, _range)
                 else:
-                    if self.thread_count >= self.GlobalProg.getOnlineQuantity():
+                    if self.thread_count > self.GlobalProg.getOnlineQuantity():
                         # if self.getLeft() / self.file.size < 0.5:
                         _server, _range = self.task.assign()
                         # print _range

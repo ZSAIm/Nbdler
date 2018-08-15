@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 import time, os
-from contentType import content_type
+
 
 class FileInfo(object):
     def __init__(self):
@@ -14,6 +14,8 @@ class FileInfo(object):
         self.exist = False
         self.force = False
         self.closed = False
+
+
 
     def make_name(self, urlinfo, filename=None):
         """  """

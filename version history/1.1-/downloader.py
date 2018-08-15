@@ -38,16 +38,14 @@ class downloader:
 
         self._kwargs = kwargs
 
+
     def add_server(self, url, host=None, path=None, port=None, cookie='', headers=None):
         """append server. in order to multi-server to download."""
-
-
+        # self.__is_multi_serves = True
+        # if isinstance(self.url, list) is True:
         self.url.append(URLinfo(url, host, path, port, cookie))
         if headers is not None:
             self.url[-1].add_headers(headers)
-
-        if len(self.url) == 1 and self.file.name is None:
-            self.file.name = self.url[0].get_filename()
         # else:
         #     self.url = []
 
@@ -58,20 +56,17 @@ class downloader:
         """inner config, ready to open url.
         , and make sure no problem."""
 
-        _size = self.url[0].res_headers['content-length']
+        _size = self.url[0].content_length
         for i in self.url:
-            if _size != i.res_headers['content-length']:
-                raise Exception("ContentLenNoMatch", _size, i.res_headers['content-length'])
+            if _size != i.content_length:
+                raise Exception("ContentLenNoMatch", _size, i.content_length)
 
+        self.file.make_name(self.url[0], self.file.name)
 
-        if not self.file.force:
-            self.file.validate_name()
-        else:
-            if os.path.exists(os.path.join(self.file.path, self.file.name)):
-                raise Exception('FileExistsError')
-        self.file.size = int(_size)
+        self.file.size = _size
 
-
+        if os.path.exists(os.path.join(self.file.path, self.file.name)):
+            self.file.exist = True
 
 
     def open(self, **kwargs):
@@ -94,7 +89,8 @@ class downloader:
 
         self.__config()
 
-
+        if self.file.force is not True and self.file.exist is True:
+            raise Exception('FileExistsError')
 
         if self._kwargs is not None:
             return DLManager(self.url, self.file, **self._kwargs)
@@ -116,32 +112,3 @@ class downloader:
             # return None
         else:
             return None
-
-if __name__ == '__main__':
-
-
-    from ___progressbar import progressBar
-
-    _list = []
-    _bar = []
-    for index in range(3):
-        _list.append(downloader())
-        _list[-1].config(file_name=str(index), thread_count=10, force=True)
-        _list[-1].add_server('http://xiazai.xiazaiba.com/Soft/T/TIM_2.2.0_XiaZaiBa.zip')
-        _list[-1].add_server('http://dblt.xiazaiba.com/Soft/T/TIM_2.2.0_XiaZaiBa.zip')
-
-        a = _list[-1].open()
-        a.start()
-        _list[-1] = a
-        _bar.append(progressBar(index, a.file.size))
-
-
-    while True:
-        _end = True
-        for i, j in enumerate(_list):
-            if j.isDone() is False:
-                _end = False
-                _bar[i].update(j.file.size - j.getLeft(), str(int(j.getinsSpeed() / 1024)) + ' kb/s')
-        time.sleep(0.5)
-        if _end is True:
-            break

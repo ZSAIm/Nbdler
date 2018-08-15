@@ -1,63 +1,98 @@
 # -*- coding: UTF-8 -*-
-import httplib
+import httplib, urllib, re
+from contentType import content_type
 
 class URLinfo(object):
     def __init__(self, url=None, host=None, path=None, port=None, cookie=''):
-        # self.id = id
+        self.url = None
+        self.host = None
+        self.path = None
+        self.protocol = None
+        self.port = None
+
+        self.cookie = ''
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'zh-CN,zh;q=0.9'
+        }
+        self.res_headers = {}
+        self.base_url = None
         self.__history = []
+
         if url is not None:
-            if self.reload_force(url, host, path, port, cookie) is False:
+            self.base_url = [url, host, path, port, cookie]
+            if self.load(url, host, path, port, cookie) is False:
                 raise Exception('UrlError')
+
+    def get_filename(self):
+        assert self.url is None
+        if self.res_headers['content-disposition'] is not None:
+            filename = re.findall(r'filename="(.*?)"', self.res_headers['content-disposition'])
+            if filename != []:
+                return filename[0]
+
+        filename = self.path.split('?')[0].split('/')[-1]
+
+
+        if filename != '':
+            if '.' not in filename or filename.split('.')[-1] == '':
+                extension = unicode(content_type(self.res_headers['content-type']))
+                filename = filename + extension
+        else:
+            filename = None
+        return filename
+
 
 
     def add_headers(self, **args):
-
         for i, j in args.items():
             for k in self.headers.keys():
                 if i.lower() == k.lower():
                     self.headers[k] = j
                     break
-        # self.headers.update(args)
+            else:
+                self.headers[i] = j
 
+    def load(self, url, host=None, path=None, port=None, cookie=''):
 
-    def reload_force(self, url, host=None, path=None, port=None, cookie=''):
-        self.url = url
+        self.protocol, s1 = urllib.splittype(url)
+        _host, self.path = urllib.splithost(s1)
+        self.host, self.port = urllib.splitport(_host)
 
-        try:
-            self.host = self.url_host()
-            self.https = self.url_https()
-            self.path = self.url_path()
-            self.port = self.url_port()
-        except:
-            self.host = None
-            self.path = None
-            self.port = None
+        if self.port is None:
+            if self.protocol == 'http':
+                self.port = 80
+            elif self.protocol == 'https':
+                self.port = 443
 
-        self.cookie = cookie
-        self.content_type = None
-        self.content_length = 0
-        self.res_headers = None
-        # self.accept_ranges = False
-        # self.changeCount = 3
-        self.headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'zh-CN,zh;q=0.9'
-        }
         if host:
             self.host = host
         if path:
             self.path = path
         if port:
             self.port = port
-        if self.isURL() is True:
 
-            self.__get_file_info()
-            self.__history.append([url, host, path, port, cookie])
-            return True
+        self.cookie = cookie
+        if self.base_url is not None:
+            self.base_url = [url, host, path, port, cookie]
+
+        if self.host:
+            for i in self.__history:
+                if url == i[0]:
+                    break
+            else:
+                self.__history.append([url, host, path, port, cookie])
+            try:
+                self.__get_request()
+                if self.res_headers == {}:
+                    return False
+                else:
+                    return True
+            except:
+                return False
         else:
-            # raise Exception('UrlError')
             return False
 
     # def dump(self):
@@ -90,75 +125,33 @@ class URLinfo(object):
     #
     #         setattr(self, i, j)
 
-    def url_host(self):
-        """ host:port """
-        txt = self.url.split(r'://')[-1]
-        return txt[:txt.index(r'/')]
 
-    def url_https(self):
-        """https or http"""
-        txt = self.url.split(r'://')[0].lower()
-
-        if txt == 'https':
-            return True
-        elif txt == 'http':
-            return False
-        else:
-            # 'Not A Valid Url or Not Http or Https!'
-
-            return None
-
-    def url_path(self):
-        """ path """
-        txt = self.url.split(r'://')[-1]
-        if '/' in txt:
-            return txt[txt.index(r'/'):]
-        else:
-            return ''
-
-
-    def url_port(self):
-        """split port from host and correct host, or default port"""
-        # print self.host
-        t = self.host.split(':')
-        self.host = t[0]
-
-        if len(t) > 1:
-
-            return int(t[-1])
-        else:
-            if self.https:
-                return 443
-            else:
-                return 80
-
-    # def add_headers(self):
-    #     self.header
-
-    def __get_file_info(self):
+    def __get_request(self):
         _count = 5
         while _count:
             try:
-                if self.https:
+                conn = None
+                if self.protocol == 'https':
                     conn = httplib.HTTPSConnection("%s:%s" % (self.host, self.port))
-                else:
+                elif self.protocol == 'http':
                     conn = httplib.HTTPConnection("%s:%s" % (self.host, self.port))
+
+                assert conn is not None
                 conn.timeout = 5
-                # self.header = ''
                 conn.request('GET', self.path, {'cookie': self.cookie}.update(self.headers))
                 res = conn.getresponse()
             except:
                 _count -= 1
                 continue
 
-            self.res_headers = res.getheaders()
+            self.res_headers = res.msg.dict
 
             if res.status == 302:
                 if res.getheader('location') != self.url:
                     if res.getheader('set-cookie') is not None:
-                        self.reload_force(res.getheader('location'), cookie=res.getheader('set-cookie'))
+                        self.load(res.getheader('location'), cookie=res.getheader('set-cookie'))
                     else:
-                        self.reload_force(res.getheader('location'))
+                        self.load(res.getheader('location'))
 
                     break
                 else:
@@ -169,50 +162,47 @@ class URLinfo(object):
             elif res.status == 405 or res.status == 404 or res.status == 500:
                 _count -= 1
                 continue
-                    # "CONNECT ERROR, THIS URL DON'T REACTE."
-            else:
-                self.content_length = int(res.getheader('content-length'))
-
-
-            if res.getheader('accept-ranges'):
-                self.accept_ranges = True
-            else:
-                self.accept_ranges = None
             conn.close()
             break
-        # print self.content_length
-    def isURL(self):
-        if self.host:
-            return True
         else:
-            return False
+            self.res_headers = {}
+            # return False
 
-    # def reload_force(self, url, host):
-
-
+        # return True
     def reload_validate(self, url):
-        if url not in self.__history:
-            self.__history.append(url)
+        for i in self.__history:
+            if url == i[0]:
+                return self.__restore()
         else:
-            return False
-        self.__bak = self.url_dict()
+            self.__history.append([url, None, None, None, ''])
+        _last_length = self.res_headers['content-length']
 
-        self.reload_force(url)
-
-        if self.content_length != self.__bak['content_length']:
-            self.__restore()
-            return False
+        if self.load(url) is True:
+            if self.res_headers['content-length'] != _last_length:
+                return self.__restore()
+        else:
+            return self.__restore()
 
         return True
+    # def url_dict(self):
+    #     return {
+    #         'url': self.url,
+    #         'host': self.host,
+    #         'path': self.path,
+    #         'port': self.port,
+    #         'cookie': self.cookie,
+    #         'content-length': self.res_headers['content-length']
+    #     }
 
-    def url_dict(self):
-        # self.__bak =
-        return {'url': self.url, 'host': self.host, 'path': self.path,
-                'port': self.port, 'cookie': self.cookie, 'content_length': self.content_length}
-
+    # def __restore(self, _bak_dict):
+    #     self.load(
+    #         _bak_dict['url'],
+    #         _bak_dict['host'],
+    #         _bak_dict['path'],
+    #         _bak_dict['port'],
+    #         _bak_dict['cookie']
+    #     )
     def __restore(self):
-        self.reload_force(self.__bak['url'],self.__bak['host'],
-                        self.__bak['path'], self.__bak['port'], self.__bak['cookie'])
-        self.content_length = self.__bak['content_length']
-
+        self.__history = []
+        return self.load(self.base_url[0], self.base_url[1], self.base_url[2], self.base_url[3], self.base_url[4])
 

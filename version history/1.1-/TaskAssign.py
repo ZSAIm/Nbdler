@@ -38,37 +38,42 @@ class TaskAssign:
         """find the widest space to be the new thread download range"""
 
         if block_range == []:
-            return [None, None]
+            return [[None, None]]
+        li = sorted(block_range, key=lambda x: (x[1] - x[0]), reverse=True)
+        # max_range = li[-1]
+        # print li
+        _blocks = []
+        for i in li:
+            if i[0] == 0:
+                _begin_pos = 0
+            else:
+                _begin_pos = (i[1] + i[0]) * self.BLOCK_SIZE / 2.0
+                _begin_pos = int(_begin_pos - _begin_pos % self.BLOCK_SIZE)
+                if _begin_pos == i[0] * self.BLOCK_SIZE:
+                    _begin_pos += self.BLOCK_SIZE
 
-        if block_range[0] == 0:
-            _begin_pos = 0
-        else:
-            _begin_pos = (block_range[1] + block_range[0]) * self.BLOCK_SIZE / 2.0
-            _begin_pos = int(_begin_pos - _begin_pos % self.BLOCK_SIZE)
-            if _begin_pos == block_range[0] * self.BLOCK_SIZE:
-                _begin_pos += self.BLOCK_SIZE
+            if i[1] == len(self.GlobalProg.map) - 1:
+                _end_pos = self.DLMobj.file.size
+            else:
+                _end_pos = i[1] * self.BLOCK_SIZE
+            _range = [_begin_pos, _end_pos]
 
-        if block_range[1] == len(self.GlobalProg.map) - 1:
-            _end_pos = self.DLMobj.file.size
-        else:
-            _end_pos = block_range[1] * self.BLOCK_SIZE
-        _range = [_begin_pos, _end_pos]
+            if _range[0] == _range[1]:
+                _range = [None, None]
+            _blocks.append(_range)
 
-        if _range[0] == _range[1]:
-            _range = [None, None]
-        return _range
+        return _blocks
 
 
 
 
     def assign(self):
 
-        _blocks = self.free_block()
-        if _blocks == []:
-            _range = [None, None]
-        else:
-            _max_block = sorted(_blocks, key=lambda x: (x[1] - x[0]), reverse=True)[0]
-            _range = self.block_to_range(_max_block)
+        _ranges_ = self.block_to_range(self.free_block())
+
+
+        _max_range = _ranges_[0]
+        _range = _max_range
 
         # fetch appropriate server, which is the highest speed per thread.
         _dict = self.GlobalProg.getQueueServerMes()

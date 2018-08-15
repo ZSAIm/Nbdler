@@ -303,7 +303,7 @@ class GlobalProgress:
                 if i.isGoEnd() is False:
                     if i.thread is None or i.thread.isAlive() is False:
                         self.DLMobj.launch(i)
-                    # break
+                    break
             # else:
             #     for i in self.queue.values():
             #         if i.isDoneEnd() is False:
@@ -394,7 +394,7 @@ class GlobalProgress:
         return _count
 
     def isDone(self):
-        return self.endFlag
+        return not self.monitor.isAlive() and self.pauseFlag is False
 
 
     def getQueueServerMes(self):
