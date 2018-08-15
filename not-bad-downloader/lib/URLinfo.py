@@ -28,7 +28,8 @@ class URLinfo(object):
 
     def get_filename(self):
         assert self.url is None
-        if self.res_headers['content-disposition'] is not None:
+
+        if self.res_headers.get('content-disposition') is not None:
             filename = re.findall(r'filename="(.*?)"', self.res_headers['content-disposition'])
             if filename != []:
                 return filename[0]
