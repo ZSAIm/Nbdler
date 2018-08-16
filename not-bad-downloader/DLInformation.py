@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 import httplib, urllib, re, os, threading
-from lib.contentType import content_type
 
 def load_attr(obj, data, ignores=[]):
     for i, j in data.items():
@@ -48,7 +47,7 @@ class URLinfo(object):
 
         if filename != '':
             if '.' not in filename or filename.split('.')[-1] == '':
-                extension = unicode(content_type(self.res_headers['content-type']))
+                extension = unicode(self.get_type(self.res_headers['content-type']))
                 filename = filename + extension
         else:
             filename = None
@@ -101,6 +100,34 @@ class URLinfo(object):
                 return False
         else:
             return False
+
+    def get_type(self, type):
+        dict = {
+            'application/octet-stream': '',
+            'image/tiff': '.tif',
+            'text/asp': '.asp',
+            'text/html': '.html',
+            'image/x-icon': '.ico',
+            'application/x-ico': '.ico',
+            'application/x-msdownload': '.exe',
+            'video/mpeg4': '.mp4',
+            'audio/mp3': '.mp3',
+            'video/mpg': '.mpg',
+            'application/pdf': '.pdf',
+            'application/vnd.android.package-archive': '.apk',
+            'application/vnd.rn-realmedia-vbr': '.rmvb',
+            'application/vnd.rn-realmedia': '.rm',
+            'application/vnd.ms-powerpoint': '.ppt',
+            'application/x-png': '.png',
+            'image/jpeg': '.jpg',
+            'application/x-jpg': '.jpg',
+            'application/x-bmp': '.bmp',
+            'application/msword': '.doc',
+            '': '',
+        }
+        if type in dict.keys():
+            return dict[type]
+        return ''
 
     @staticmethod
     def load(_data):
