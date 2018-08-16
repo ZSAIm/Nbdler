@@ -1,17 +1,12 @@
 
 
 class TaskAssign:
-    def __init__(self, server_set, GlobalProg, DLMobj):
-
+    def __init__(self, DLMobj, GlobalProg, urls, file):
 
         self.DLMobj = DLMobj
-        self.file_size = self.DLMobj.file.size
         self.GlobalProg = GlobalProg
-        self.BLOCK_SIZE = self.DLMobj.BLOCK_SIZE
-        self.server_set = server_set
-
-        self.thread_count = self.DLMobj.thread_count
-
+        self.file = file
+        self.urls = urls
 
 
     def free_block(self):
@@ -43,22 +38,20 @@ class TaskAssign:
         if block_range[0] == 0:
             _begin_pos = 0
         else:
-            _begin_pos = (block_range[1] + block_range[0]) * self.BLOCK_SIZE / 2.0
-            _begin_pos = int(_begin_pos - _begin_pos % self.BLOCK_SIZE)
-            if _begin_pos == block_range[0] * self.BLOCK_SIZE:
-                _begin_pos += self.BLOCK_SIZE
+            _begin_pos = (block_range[1] + block_range[0]) * self.file.BLOCK_SIZE / 2.0
+            _begin_pos = int(_begin_pos - _begin_pos % self.file.BLOCK_SIZE)
+            if _begin_pos == block_range[0] * self.file.BLOCK_SIZE:
+                _begin_pos += self.file.BLOCK_SIZE
 
         if block_range[1] == len(self.GlobalProg.map) - 1:
             _end_pos = self.DLMobj.file.size
         else:
-            _end_pos = block_range[1] * self.BLOCK_SIZE
+            _end_pos = block_range[1] * self.file.BLOCK_SIZE
         _range = [_begin_pos, _end_pos]
 
         if _range[0] == _range[1]:
             _range = [None, None]
         return _range
-
-
 
 
     def assign(self):
@@ -73,25 +66,23 @@ class TaskAssign:
         # fetch appropriate server, which is the highest speed per thread.
         _dict = self.GlobalProg.getQueueServerMes()
         # print _dict.values()
-        _server = None
-        if len(_dict) >= len(self.server_set):
+        _url = None
+        if len(_dict) >= len(self.urls):
             _speed_up = sorted(list(_dict.items()), key=lambda x: x[1]['SPEED'] / x[1]['COUNT'])
-            _server = _speed_up[-1][0]
+            _url = _speed_up[-1][0]
         else:
-            for i in self.server_set:
+            for i in self.urls:
                 if i not in _dict.keys():
-                    _server = i
+                    _url = i
                     break
 
         if len(self.GlobalProg.queue) != 0 and None not in _range:
-
             _parent_progress = self.GlobalProg.get_parent_prog(_range)
             _range = _parent_progress.clip_range_req(_range)
 
-
-        if _server is None:
-            _server = self.server_set[0]
+        if _url is None:
+            _url = self.urls[0]
         if None not in _range:
-            self.GlobalProg.map[int(_range[0] / self.BLOCK_SIZE)] = self.server_set.index(_server)
+            self.GlobalProg.map[int(_range[0] / self.file.BLOCK_SIZE)] = self.urls.index(_url)
 
-        return _server, _range
+        return _url, _range

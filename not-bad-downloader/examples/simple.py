@@ -4,7 +4,7 @@ import time
 
 dl = downloader()
 # dl.config(thread_count=10)
-dl.add_server('http://dldir1.qq.com/weixin/Windows/WeChatSetup.exe')
+dl.add_url('http://dldir1.qq.com/weixin/Windows/WeChatSetup.exe')
 opener = dl.open()
 opener.start()
 

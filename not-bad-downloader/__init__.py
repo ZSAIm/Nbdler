@@ -1,10 +1,10 @@
 """
 **********************************************
-name    : downloader
+name    : not-bad-downloader
 author  : ZSAIm
-version : 1.1
+version : 1.2
 email   : 405935987@163.com
-GitHub  : https://github.com/ZSAIm/not-bad-downloader
+GitHub  : https://github.com/ZSAIm/downloader
 **********************************************
                                 Python  : 2.7
 """

@@ -2,39 +2,48 @@
 import time, sys, math, threading
 from WaitLock import WaitLock
 
+def load_attr(obj, data, ignores=[]):
+    for i, j in data.items():
+        if i not in ignores:
+            setattr(obj, i, j)
 
 
 class Status:
     def __init__(self):
         self.startTime_go = time.clock()
-        # print 'start', self.startTime_go
         self.endTime_go = None
+        self.endTime_done = None
 
         self.endFlag_go = False
         self.endFlag_done = False
         self.pauseFlag = False
 
+        self.retry_count = 0
+        self.empty_count = 0
+
+
 
 class Piece:
     def __init__(self):
         self.go_inc = 0
-        # self.startTime = time.clock()
+        self.lastLeft = None
         self.lastTime_go = time.clock()
+
+
 
 class Progress:
 
-    def __init__(self, server_index, server, range, GlobalProg):
+    BLOCK_SIZE = 1024 * 1024
 
-        self.server_index = server_index
+    def __init__(self, url_index, url, range, GlobalProg):
+
+        self.url_index = url_index
         self.GlobalProg = GlobalProg
-        # self.initialize(server, range)
-        # if GlobalProg.save is True:
-        #     self.BLOCK_SIZE = GlobalProg.DLMobj.BLOCK_SIZE
 
         self.buffer_piece = {}
         # self.save = save
 
-        self.server = server
+        self.url = url
         self.thread = None
 
         self.begin = range[0]
@@ -51,7 +60,7 @@ class Progress:
         self.piece = Piece()
 
 
-        self.retry_count = 0
+
 
         self.wait = WaitLock(timeout=2)
         self.lock = threading.Lock()
@@ -69,25 +78,11 @@ class Progress:
                 if i.status.endFlag_done is False:
                     break
             else:
-                self.GlobalProg.endFlag = True
-                self.GlobalProg.endTime = time.clock()
+                self.GlobalProg.status.endFlag_done = True
+                self.GlobalProg.status.endTime_done = time.clock()
 
-            # self.wait.release()
-            # if self.GlobalProg is not None:
-            # self.GlobalProg.close()
-
-
-        # if self.GlobalProg.save is True:
-        if self.GlobalProg.pauseFlag is True:
+        if self.GlobalProg.status.pauseFlag is True:
             self.status.pauseFlag = True
-        if self.done_inc > self.length:
-            # print
-            # if self.GlobalProg.save is :
-            print self.GlobalProg.file.name
-            raise Exception('ProgressCountError: (done_inc, length, id) = ', self.done_inc, self.length)
-        # if self.done_inc == self.length:
-
-
 
 
     def merge_buffer_piece(self):
@@ -102,10 +97,7 @@ class Progress:
             return ret_buf
 
     def go(self, byte_length):
-        """count the sizes that had downloaded to buffer.
-        """
-
-        self.piece.go_inc += byte_length
+        # self.piece.go_inc += byte_length
 
         self.go_inc += byte_length
 
@@ -113,10 +105,10 @@ class Progress:
             print '-----', self.go_inc, self.length
 
         if self.GlobalProg.save is True:
-            pos = int((self.begin + self.go_inc - byte_length)* 1.0 / self.GlobalProg.BLOCK_SIZE)
-            _fil_len = int(math.ceil(byte_length * 1.0 / self.GlobalProg.BLOCK_SIZE))
+            pos = int((self.begin + self.go_inc - byte_length) * 1.0 / Progress.BLOCK_SIZE)
+            _fil_len = int(math.ceil(byte_length * 1.0 / Progress.BLOCK_SIZE))
             for i in range(_fil_len):
-                self.GlobalProg.map[pos + i] = self.server_index
+                self.GlobalProg.map[pos + i] = self.url_index
 
         if self.go_inc == self.length:
             self.wait.release()
@@ -124,10 +116,16 @@ class Progress:
             self.status.endTime_go = time.clock()
             # print 'end', self.status.endTime_go
             # print '****', self.GlobalProg.file.size, self.end
-            if self.GlobalProg.save is True:
-                if self.GlobalProg.file.size == self.end:
-                    self.GlobalProg.map[-1] = self.server_index
+            # if self.GlobalProg.save is True:
+            #     if self.GlobalProg.file.size == self.end:
+            #         self.GlobalProg.map[-1] = self.url_index
 
+            for i in self.GlobalProg.queue.values():
+                if i.status.endFlag_go is False:
+                    break
+            else:
+                self.GlobalProg.status.endFlag_go = True
+                self.GlobalProg.status.endTime_go = time.clock()
 
     def clip_range_req(self, take_range):
         with self.wait as res:
@@ -138,7 +136,7 @@ class Progress:
                 return [None, None]
 
             while self.begin + self.go_inc >= take_range[0]:
-                take_range[0] += self.GlobalProg.BLOCK_SIZE
+                take_range[0] += Progress.BLOCK_SIZE
             if take_range[0] >= take_range[1]:
                 return [None, None]
             new_range = [self.begin, take_range[0]]
@@ -180,11 +178,8 @@ class Progress:
 
     def getavgSpeed(self):
         if self.status.endFlag_go is False:
-            # print 2, self.go_inc, (time.clock() - self.status.startTime_go), time.clock(), self.status.startTime_go
             return self.go_inc / (time.clock() - self.status.startTime_go)
         else:
-            # e = self.go_inc / (self.status.endTime_go - self.status.startTime_go) / 1024
-            # print 2, self.go_inc, (self.status.endTime_go - self.status.startTime_go), self.status.endTime_go ,self.status.startTime_go, e
             return self.go_inc / (self.status.endTime_go - self.status.startTime_go)
 
 
@@ -199,6 +194,7 @@ class Progress:
             return self.thread.isAlive()
         else:
             return False
+
     def re_init(self):
         self.go_inc = 0
         self.increment = 0
@@ -207,78 +203,106 @@ class Progress:
         self.status = Status()
         self.piece = Piece()
 
-        self.GlobalProg.endFlag = False
+        self.GlobalProg.status.endFlag_go = False
+        self.GlobalProg.status.endFlag_done = False
+
         if self.GlobalProg.save is True:
 
-            pos = int(self.end * 1.0 / self.GlobalProg.BLOCK_SIZE)
-            _fil_len = int((self.length) * 1.0 / self.GlobalProg.BLOCK_SIZE) - 1
+            pos = int(self.end * 1.0 / Progress.BLOCK_SIZE)
+            _fil_len = int(self.length * 1.0 / Progress.BLOCK_SIZE) - 1
             for i in range(_fil_len):
                 self.GlobalProg.map[pos - i - 1] = None
 
+    def dump(self):
+        _dump_dict = dict(
+            url_index=self.url_index,
+            range=[self.begin, self.end],
+            buffer_piece=self.buffer_piece,
+            go_inc=self.go_inc,
+            done_inc=self.done_inc,
+            increment=self.increment,
+            status={
+                'endFlag_go': self.status.endFlag_go,
+                'endFlag_done': self.status.endFlag_done,
+                'pauseFlag': self.status.pauseFlag,
+                'startTime': self.status.startTime_go,
+                'endTime': self.status.endTime_go,
+            }
 
-    def copy(self):
-        _dump_prog = Progress(self.server_index, self.server, [self.begin, self.end], self.GlobalProg)
+        )
 
-        _dump_prog.GlobalProg = None
-        _dump_prog.buffer_piece = self.buffer_piece
-        _dump_prog.lock = None
-        _dump_prog.server = None
+        return _dump_dict
 
-        # INCREMENT
-        _dump_prog.go_inc = self.go_inc
-        _dump_prog.done_inc = self.done_inc
-        _dump_prog.increment = self.increment
+    @staticmethod
+    def load(_data):
+        prog = Progress(_data['url_index'], None, _data['range'], None)
 
-        _dump_prog.status = self.status
-        _dump_prog.piece = self.piece
+        load_attr(prog, _data, ['status'])
+        load_attr(prog.status, _data)
 
-        _dump_prog.retry_count = self.retry_count
+        return prog
 
-        return _dump_prog
+    def activate(self, GlobalProg):
+        self.GlobalProg = GlobalProg
+        # self.lock = threading.Lock()
+        self.url = GlobalProg.urls[self.url_index]
 
-    def activate(self):
-        self.lock = threading.Lock()
-        self.server = self.GlobalProg.DLMobj.servers[self.server_index]
-        pos = int((self.begin) * 1.0 / self.GlobalProg.BLOCK_SIZE)
-        _fil_len = int(math.ceil(self.go_inc * 1.0 / self.GlobalProg.BLOCK_SIZE))
+        if self.status.endTime_go is False:
+            self.status.startTime_go = time.clock()
+
+        pos = int((self.begin) * 1.0 / Progress.BLOCK_SIZE)
+        _fil_len = int(math.ceil(self.go_inc * 1.0 / Progress.BLOCK_SIZE))
         for i in range(_fil_len):
-            self.GlobalProg.map[pos + i] = self.server_index
+            self.GlobalProg.map[pos + i] = self.url_index
 
 
 
 
 class GlobalProgress:
 
-    def __init__(self, DLMobj, save=True):
+    def __init__(self, DLMobj, urls, file, save=True):
 
         self.DLMobj = DLMobj
         self.save = save
-        if self.save is True:
-            self.BLOCK_SIZE = self.DLMobj.BLOCK_SIZE
-            self.file = self.DLMobj.file
-            self.map = self.__make_map(self.file.size)
-            self.size = None
-        else:
-            self.file = None
-            self.map = None
-            self.BLOCK_SIZE = None
-            self.size = 0
+        self.urls = urls
+        self.file = file
 
-        self.startTime = time.clock()
-        self.endTime = None
-        self.lastLeft = None
-        self.lastTime = None
+
+        if self.save is True:
+            # self.BLOCK_SIZE = BLOCK_SIZE
+            # self.file = file
+            self.map = self.__make_map(self.file.size)
+            # self.size = None
+        else:
+            # self.file = None
+            self.map = None
+            # self.BLOCK_SIZE = None
+            # self.size = 0
+
+        # self.status = Status()
+
+        self.piece = Piece()
+        self.status = Status()
+
+        # self.startTime = time.clock()
+        # self.endTime = None
+        # self.lastLeft = None
+        # self.lastTime = None
         self.lastSpeed = None
 
         self.queue = {}
+        # self.prog_set = []
 
-        self.endFlag = False    # END last
-        self.pauseFlag = False  # PAUSE first
+        # self.endFlag = False    # END last
+        # self.pauseFlag = False  # PAUSE first
         self.monitor = None
 
-    def __make_map(self, size):
+        self.retry_wait = threading.Lock()
 
-        return [None for i in range(int(math.ceil(size*1.0 / self.BLOCK_SIZE)))]
+        Progress.BLOCK_SIZE = self.file.BLOCK_SIZE
+
+    def __make_map(self, size):
+        return [None for i in range(int(math.ceil(size*1.0 / self.file.BLOCK_SIZE)))]
 
 
 
@@ -287,66 +311,52 @@ class GlobalProgress:
         self.monitor.start()
 
     def __monitor_thread(self):
-        # _retry_count = 0
         while True:
-            if self.pauseFlag is True or self.endFlag is True:
+            if self.status.pauseFlag is True or self.status.endFlag_go is True:
                 break
-            # if len(self.queue) == 0:
-            #     _retry_count += 1
-            #     time.sleep(2)
-            #     if _retry_count > 5:
-            #         break
-            #     continue
-            # else:
-            #     _retry_count = 0
+
             for i in self.queue.values():
                 if i.isGoEnd() is False:
                     if i.thread is None or i.thread.isAlive() is False:
-                        self.DLMobj.launch(i)
-                    # break
-            # else:
-            #     for i in self.queue.values():
-            #         if i.isDoneEnd() is False:
-            #             i.go_inc = i.done_inc
-            #             i.status.endFlag_go = False
-            #             i.status.endTime_go = None
-            #             self.DLMobj.launch(i)
-            #             break
-            #     else:
-            #         self.endFlag = True
-            #         break
-            time.sleep(1)
+                        if self.retry_wait.locked() is False:
+                            self.DLMobj.launch(i)
+
+            time.sleep(3)
 
 
-    def append_progress(self, server, _range):
-        self.endFlag = False
-        self.endTime = None
-        _prog = Progress(self.DLMobj.servers.index(server), server, _range, self)
+    def enqueue(self, url, _range):
+        self.status.endFlag_go = False
+        self.status.endTime_go = None
+        _prog = Progress(self.urls.index(url), url, _range, self)
         self.queue['%d-%d' % (_range[0], _range[1])] = _prog
         if self.monitor is None or self.monitor.isAlive() is False:
             self.launch_monitor()
         return _prog
 
+    # def append_progress(self):
+    #     self.prog_set.append()
+    #     pass
+
     def getinsSpeed(self):
         """global instant speed"""
 
-        if self.lastLeft is None:
+        if self.piece.lastLeft is None or self.piece.lastTime_go is None:
             # print self.queue.keys()
             if len(self.queue) > 0:
-                self.lastLeft = self.getLeft()
-                self.lastTime = time.clock()
+                self.piece.lastLeft = self.getLeft()
+                self.piece.lastTime_go = time.clock()
             return 0
         else:
             now_left = self.getLeft()
             # print now_left, self.lastLeft
-            if self.endFlag is False:
-                ret = (self.lastLeft - now_left) / (time.clock() - self.lastTime)
+            if self.status.endFlag_go is False:
+                ret = (self.piece.lastLeft - now_left) / (time.clock() - self.piece.lastTime_go)
 
             else:
-                ret = (self.lastLeft - now_left) / (self.endTime - self.startTime)
+                ret = (self.piece.lastLeft - now_left) / (self.status.endTime_go - self.status.startTime_go)
 
-            self.lastLeft = now_left
-            self.lastTime = time.clock()
+            self.piece.lastLeft = now_left
+            self.piece.lastTime_go = time.clock()
 
             if ret < 0:
                 return self.getavgSpeed()
@@ -358,16 +368,16 @@ class GlobalProgress:
     def getavgSpeed(self):
         """global average speed"""
 
-        if self.endFlag is False:
+        if self.status.endFlag_go is False:
             if self.lastSpeed is None:
-                return (self.file.size - self.getLeft()) / (time.clock() - self.startTime)
+                return (self.file.size - self.getLeft()) / (time.clock() - self.status.startTime_go)
             else:
-                return (self.lastSpeed + (self.file.size - self.getLeft()) / (time.clock() - self.startTime)) / 2
+                return (self.lastSpeed + (self.file.size - self.getLeft()) / (time.clock() - self.status.startTime_go)) / 2
         else:
             if self.lastSpeed is None:
-                return (self.file.size - self.getLeft()) / (self.endTime - self.startTime)
+                return (self.file.size - self.getLeft()) / (self.status.endTime_go - self.status.startTime_go)
             else:
-                return (self.lastSpeed + (self.file.size - self.getLeft()) / (self.endTime - self.startTime)) / 2
+                return (self.lastSpeed + (self.file.size - self.getLeft()) / (self.status.endTime_go - self.status.startTime_go)) / 2
 
 
 
@@ -376,7 +386,8 @@ class GlobalProgress:
         """get global left of the downloading."""
         sum = 0
         for i in self.queue.values():
-            sum += i.getLeft()
+            # sum += i.getLeft()
+            sum += i.length - i.go_inc
         return sum
 
 
@@ -388,25 +399,27 @@ class GlobalProgress:
     def getOnlineQuantity(self):
         _count = 0
         for i in self.queue.values():
-            if i.isAlive() is True:
+            if i.thread is not None and i.thread.isAlive() is True:
                 _count += 1
+            # if i.isAlive() is True:
+            #     _count += 1
 
         return _count
 
     def isDone(self):
-        return self.endFlag
+        return self.status.endFlag_go
 
 
     def getQueueServerMes(self):
         _dict = {}
-        _server = None
+        # _server = None
 
         for i in self.queue.values():
-            if _dict.has_key(i.server) is True:
-                _dict[i.server]['COUNT'] += 1
-                _dict[i.server]['SPEED'] += i.getavgSpeed()
+            if _dict.has_key(i.url) is True:
+                _dict[i.url]['COUNT'] += 1
+                _dict[i.url]['SPEED'] += i.getavgSpeed()
             else:
-                _dict[i.server] = {'SPEED': i.getavgSpeed(), 'COUNT': 1}
+                _dict[i.url] = {'SPEED': i.getavgSpeed(), 'COUNT': 1}
 
         return _dict
 
@@ -420,9 +433,7 @@ class GlobalProgress:
 
         return None
 
-
     def clip_range(self, old_range, new_range):
-
         prog = self.queue['%d-%d' % (old_range[0], old_range[1])]
         # print prog
         del self.queue['%d-%d' % (old_range[0], old_range[1])]
@@ -430,7 +441,7 @@ class GlobalProgress:
 
     def pause(self):
 
-        self.pauseFlag = True
+        self.status.pauseFlag = True
         while True:
             for i in self.queue.values():
                 if i.status.pauseFlag is False and \
@@ -442,9 +453,10 @@ class GlobalProgress:
                 break
             time.sleep(0.2)
 
-
     def _continue(self):
-        self.pauseFlag = False
+        self.status.pauseFlag = False
+        # for i in self.urls:
+            # i.reload()
         for i in self.queue.values():
             i.status.pauseFlag = False
             if i.isGoEnd() is False:
@@ -456,39 +468,58 @@ class GlobalProgress:
         # print 'Global dump'
         _copy_queue = {}
         for i, j in self.queue.items():
-            _copy_queue[i] = j.copy()
-        if self.lastSpeed is None:
-            self.lastSpeed = self.getavgSpeed()
-        else:
-            self.lastSpeed = (self.getavgSpeed() + self.lastSpeed) / 2
+            # _copy_queue[i] = j.copy()
+            _copy_queue[i] = j.dump()
+
+        # if self.lastSpeed is None:
+        #     self.lastSpeed = self.getavgSpeed()
+        # else:
+        #     self.lastSpeed = (self.getavgSpeed() + self.lastSpeed) / 2
 
         _dump_dict = dict(
             queue=_copy_queue,
-            endFlag=self.endFlag,
-            pauseFlag=self.pauseFlag,
-            startTime=self.startTime,
-            endTime=self.endTime,
-            lastLeft=self.lastLeft,
-            lastSpeed=self.lastSpeed
+            status=dict(
+                endFlag_done=self.status.endFlag_done,
+                endFlag_go=self.status.endFlag_go,
+                pauseFlag=self.status.pauseFlag
+            )
+            # startTime=self.startTime,
+            # endTime=self.endTime,
+            # lastLeft=self.lastLeft,
+            # lastSpeed=self.lastSpeed
         )
 
         return _dump_dict
 
-    def activate(self):
-        self.BLOCK_SIZE = self.DLMobj.BLOCK_SIZE
-        self.file = self.DLMobj.file
-        self.map = self.__make_map(self.file.size)
-        self.lastTime = None
-        self.startTime = time.clock()
+    def activate(self, _data):
+        # self.BLOCK_SIZE = BLOCK_SIZE
+        # self.map = self.__make_map(self.file.size)
+        for i, j in _data['queue'].items():
+            self.queue[i] = Progress.load(j)
+            self.queue[i].activate(self)
+
+        load_attr(self, _data, ['queue', 'status'])
+        load_attr(self.status, _data['status'])
+
+        # self.file = self.DLMobj.file
+
+        # print self.map
+        # self.lastTime = None
+        # self.startTime = time.clock()
+
+    # @staticmethod
+    # def load(_data, DLMobj):
+    #     globalprog = GlobalProgress(DLMobj)
+    #
+    #
+    #
+    #     self.activate()
+    #
+    #     for i, j in _data.items():
+    #         setattr(self, i, j)
+    #
+    #     for i in self.queue.values():
+    #         i.GlobalProg = self
+    #         i.activate()
 
 
-
-    def load(self, _data):
-        self.activate()
-
-        for i, j in _data.items():
-            setattr(self, i, j)
-
-        for i in self.queue.values():
-            i.GlobalProg = self
-            i.activate()
