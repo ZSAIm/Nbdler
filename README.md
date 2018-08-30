@@ -1,18 +1,17 @@
-# not-bad-downloader
+# not-bad-downloader ( NB dwonloader )
 multi-server, auto-range, completeness-validate...
 
 
-# 不错的下载器
+# 不错的下载器 (not-bad-downloader) (NB downloader)
 	* 【支持多服务器下载】
 	* 【自动分片控制管理】
 	* 【超时自动连接重试】
 	* 【文件损坏尝试修复】
 
 ## 更新说明
-### 最新版本 1.1+
-	1) 解决下载速度不准确的问题。
-	2) 进一步结构化代码。
-	2) 解决若干bug。
+### 最新版本 1.2+
+	1) 解决一些致命bug。
+	
 ## 程序说明
 ### 基本功能： 
 	断点续传 、 分片下载 、 等各种基本功能。
@@ -24,6 +23,10 @@ multi-server, auto-range, completeness-validate...
 	无
 
 ### 基本结构
+				信息结构:				   |-> URLinfo
+							DLInformation -|
+										   |-> Fileinfo
+
                                                 /--> Progress 
                                /----> progress ----> GlobalProgress           TaskAssign <-- WaitLock -> Progress 
 	downloader -> DLManager --|          									   

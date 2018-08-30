@@ -14,13 +14,13 @@ class downloader:
         """specify [name,[path,[thread_count]
 
         args:
-            ::param:    file_name       :
-            ::param:    file_path       :
-            ::param:    max_thread      :
-            ::param:    force           :
-            ::param:    verify          :
-            ::param:    fix_try         :
-            ::param:    block_size      :
+            :param:    file_name       :
+            :param:    file_path       :
+            :param:    max_thread      :
+            :param:    force           :
+            :param:    verify          :
+            :param:    fix_try         :
+            :param:    block_size      :
         """
 
         self.file.path = unicode(kwargs.get('file_path', ''))
@@ -43,8 +43,9 @@ class downloader:
 
         if len(self.url) == 1 and self.file.name is None:
             self.file.name = self.url[0].get_filename()
+            self.file.size = int(self.url[0].res_headers.get('content-length', 0))
 
-    def clear_servers(self):
+    def clear_urls(self):
         self.url = []
 
     def __config(self):
@@ -72,18 +73,19 @@ class downloader:
         """open url to get ready to download.
 
         args:
-            ::param:    file_name       :
-            ::param:    file_path       :
-            ::param:    max_thread      :
-            ::param:    force           :
-            ::param:    verify          :
-            ::param:    fix_try         :
-            ::param:    block_size      :
+            :param:    file_name       :
+            :param:    file_path       :
+            :param:    max_thread      :
+            :param:    force           :
+            :param:    verify          :
+            :param:    fix_try         :
+            :param:    block_size      :
 
         """
         if not self.url:
-            raise AttributeError
-        self.config(**kwargs)
+            raise AttributeError('NoUrlError, you need to .add_url() before open.')
+        if kwargs:
+            self.config(**kwargs)
         self.__config()
         return DLManager(self.url, self.file)
 
@@ -93,6 +95,5 @@ class downloader:
             with open(os.path.join(path, name + '.db'), 'rb') as f:
                 pkl = cPickle.Unpickler(f)
                 return DLManager.load(pkl.load())
-
         else:
             return None
