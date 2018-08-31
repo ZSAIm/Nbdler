@@ -51,6 +51,7 @@ class DLManager(object):
     def launch(self, _progress):
         if _progress.url.retry_count >= 3:
             if _progress.url.retry_count >= 10:
+                self.pause()
                 _progress.url.dead = True
                 return
             _progress.url.reload()
@@ -84,12 +85,9 @@ class DLManager(object):
         _progress.wait.acquire()
         if self.GlobalProg.status.pauseFlag is True:
             return
-
         if url is None:
             url = _progress.url
-
         _empty_count = 0
-
         sock = None
         ip = socket.gethostbyname(url.host)
         if url.protocol == 'https':
@@ -115,6 +113,7 @@ class DLManager(object):
         except:
             # CONNECT TIME OUT EXCEPTION.
             time.sleep(3)
+            url.retry_count += 1
             try:
                 sock.shutdown(socket.SHUT_RDWR)
             except:
@@ -125,7 +124,6 @@ class DLManager(object):
 
         if not buff:
             url.retry_count += 1
-            # _progress.status.empty_count += 1
             sock.shutdown(socket.SHUT_RDWR)
             time.sleep(3)
             self.__retry__(_progress)
@@ -146,7 +144,6 @@ class DLManager(object):
         _status, _headers_dict = self.parse_HTTPMessage(_headers)
 
         if _status == 302:
-            # print _progress.server.url, _headers_dict['location']
             url.reload_validate(_headers_dict['location'])
             sock.shutdown(socket.SHUT_RDWR)
             self.__retry__(_progress)
@@ -249,57 +246,48 @@ class DLManager(object):
 
         return _status, headers_dict
 
-
-
     def getinsSpeed(self):
         return self.GlobalProg.getinsSpeed()
 
     def getavgSpeed(self):
         return self.GlobalProg.getavgSpeed()
 
-
     def getLeft(self):
         return self.GlobalProg.getLeft()
-
 
     def __auto_AssignTask_(self):
         while True:
             if self.GlobalProg.status.pauseFlag is True:
                 break
-            if self.isDone() is True:
-                print self.GlobalProg.queue.keys()
-                print self.GlobalProg.map
+            if self.__isDone() is True:
+                # print self.GlobalProg.queue.keys()
+                # print self.GlobalProg.map
                 if self.file.closed is False:
                     if self.file.VERIFY is True:
                         if self._fix_count != 0:
-                            if self.verify() is False:
+                            if self.verify_file() is False:
                                 raise NotImplementedError('Failed to fix the file')
                             self.__close()
                         else:
-                            if self.verify() is True:
+                            if self.verify_file() is True:
                                 self.__close()
+
                     else:
                         self.__close()
                     break
                 else:
                     break
+            elif self.GlobalProg.retry_wait.locked() is False:
+                if len(self.GlobalProg.queue) == 0:
+                    for i in range(len(self.urls)):
 
-            else:
-                if self.GlobalProg.retry_wait.locked() is False:
-                    if len(self.GlobalProg.queue) == 0:
-                        for i in range(len(self.urls)):
-
-                            _url, _range = self.task.assign()
-                            self.__build_download(_url, _range)
-                    else:
-                        if self.file.MAX_THREAD > self.GlobalProg.getOnlineQuantity():
-                            # if self.getLeft() / self.file.size < 0.5:
-
-                            _url, _range = self.task.assign()
-                            self.__build_download(_url, _range)
-                    # lef = self.getLeft()
-                    # print lef, self.GlobalProg.getOnlineQuantity(), self.getinsSpeed()/1024
-
+                        _url, _range = self.task.assign()
+                        self.__build_download(_url, _range)
+                else:
+                    if self.file.MAX_THREAD > self.GlobalProg.getRuningQuantity():
+                        # if self.getLeft() / self.file.size < 0.5:
+                        _url, _range = self.task.assign()
+                        self.__build_download(_url, _range)
             time.sleep(2)
 
     def start(self):
@@ -323,6 +311,9 @@ class DLManager(object):
 
     def isDone(self):
         """return weather is running or not"""
+        return self.GlobalProg.status.endFlag_done and self.file.closed
+
+    def __isDone(self):
         return self.GlobalProg.status.endFlag_done
 
     def pause(self):
@@ -359,40 +350,32 @@ class DLManager(object):
         if os.path.exists(os.path.join(self.file.path, self.file.name + u'.db')) is True:
             os.remove(os.path.join(self.file.path, self.file.name + u'.db'))
 
+    def verify_urls(self, sample_size=1024):
+        if len(self.urls) == 1:
+            return True
 
-    # def server_validate(self, sample_size=1024):
-    #     # _box_prog = []
-    #
-    #
-    #     _begin = random.randint(0, self.file.size - sample_size)
-    #
-    #     _range = [_begin, _begin + sample_size]
-    #
-    #     _Global_prog = GlobalProgress(self, False)
-    #     _progs = []
-    #     for index, value in enumerate(self.urls):
-    #         _prog = _Global_prog.enqueue(value, _range)
-    #         # _progs.append(Progress(index, value, _range))
-    #         self.launch(_prog)
-    #
-    #     # _Global_prog.launch_monitor()
-    #
-    #     while True:
-    #         if _Global_prog.isDone() is True:
-    #             break
-    #         time.sleep(1)
-    #     _box_buff = []
-    #
-    #     for i in _Global_prog.queue.values():
-    #         _box_buff.append(i.merge_buffer_piece())
-    #     _one = _box_buff[0]
-    #     for i in _box_buff[1:]:
-    #         # print i
-    #         if i != _one:
-    #             return False
-    #     return True
+        import random
+        _begin = random.randint(0, self.file.size - sample_size)
+        _range = [_begin, _begin + sample_size]
+        _Global_prog = GlobalProgress(self, self.urls, self.file, False)
+        for index, value in enumerate(self.urls):
+            _prog = _Global_prog.enqueue(value, _range)
+            self.launch(_prog)
 
-    def verify(self, url_index=0, fix=False):
+        while True:
+            if _Global_prog.isDone() is True:
+                break
+            time.sleep(0.1)
+        _box_buff = []
+        for i in _Global_prog.queue.values():
+            _box_buff.append(i.merge_buffer_piece())
+        _one = _box_buff[0]
+        for i in _box_buff[1:]:
+            if i != _one:
+                return False
+        return True
+
+    def verify_file(self, url_index=0, fix=False):
         _index = url_index
         _url = self.urls[_index]
         _Global_prog = GlobalProgress(self, self.urls, self.file, False)
@@ -402,14 +385,10 @@ class DLManager(object):
                 _range[0] = _range[1] - 1024
             _prog = _Global_prog.enqueue(_url, _range)
             self.launch(_prog)
-
-        # _Global_prog.launch_monitor()
-
         while True:
             if _Global_prog.isDone() is True:
                 break
             time.sleep(1)
-
         _damage = []
 
         with open(os.path.join(self.file.path, self.file.name + u'.download'), 'rb') as f:
@@ -419,10 +398,9 @@ class DLManager(object):
                 _file_buf = f.read(_range[1] - _range[0])
                 _buff = j.merge_buffer_piece()
                 if _file_buf != _buff:
+                    print len(_file_buf), len(_buff)
                     _damage.append(_range)
-
         # print 'damage_list: ', _damage
-
         if _damage:
             if fix is False:
                 return False
@@ -444,21 +422,15 @@ class DLManager(object):
         self.auto_assign_thread = threading.Thread(target=self.__auto_AssignTask_)
         self.auto_assign_thread.start()
 
-        # self.GlobalProg.launch_monitor()
-
     def dump(self):
-
         _url_dump = []
         for i in self.urls:
             _url_dump.append(i.dump())
-
         _dump_dict = dict(
             url=_url_dump,
             file=self.file.dump(),
             GlobalProg=self.GlobalProg.dump()
         )
-
-
         return _dump_dict
 
     def save(self):
@@ -479,24 +451,3 @@ class DLManager(object):
 
         return dlm
 
-
-
-        # _type = [list, int, str, tuple, int, bool, float, long, dict, URLinfo, FileInfo]
-        # _instance = {}
-        # for i, j in _data.items():
-        #     for k in _type:
-        #         if isinstance(j, k) is True:
-        #             if isinstance(j, dict) is False:
-        #                 break
-        #             elif hasattr(self, i) is False or getattr(self, i) is not None:
-        #                 break
-        #     else:
-        #         if j is not None:
-        #             _instance[i] = j
-        #             continue
-        #     setattr(self, i, j)
-        #
-        # self.GlobalProg = GlobalProgress(self)
-        #
-        # for i, j in _instance.items():
-        #     getattr(self, i).load(j)

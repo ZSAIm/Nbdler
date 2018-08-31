@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 import time, sys, math, threading
 from WaitLock import WaitLock
+from io import StringIO
 
 def load_attr(obj, data, ignores=[]):
     for i, j in data.items():
@@ -29,6 +30,8 @@ class Piece:
 
 
 class Progress:
+
+
 
     def __init__(self, url_index, url, range, GlobalProg):
 
@@ -69,6 +72,7 @@ class Progress:
                 if i.status.endFlag_done is False:
                     break
             else:
+                # print 'end'
                 self.GlobalProg.status.endFlag_done = True
                 self.GlobalProg.status.endTime_done = time.clock()
 
@@ -81,9 +85,14 @@ class Progress:
             return None
         else:
             ret_buf = ''
+            stream = StringIO()
+
             _part_up = sorted(self.buffer_piece.items(), key=lambda x: x[0])
+
             for i in _part_up:
                 ret_buf += i[1]
+                if len(i[1]) != 1024:
+                    print len(ret_buf), len(i[1])
             return ret_buf
 
     def go(self, byte_length):
@@ -240,22 +249,23 @@ class GlobalProgress:
         self.urls = urls
         self.file = file
         if self.save is True:
-            self.map = self.__make_map(self.file.size)
+            self.map = self.make_map(self.file.size)
         else:
             self.map = None
 
         self.piece = Piece()
         self.status = Status()
 
-        # self.piece.lastLeft = self.file.size
+        self.piece.lastLeft = self.file.size
         self.lastSpeed = None
 
         self.queue = {}
         self.monitor = None
         self.retry_wait = threading.Lock()
+        # global BLOCK_SIZE
+        # BLOCK_SIZE = self.file.BLOCK_SIZE
 
-
-    def __make_map(self, size):
+    def make_map(self, size):
         return [None for i in range(int(math.ceil(size*1.0 / self.file.BLOCK_SIZE)))]
 
     def launch_monitor(self):

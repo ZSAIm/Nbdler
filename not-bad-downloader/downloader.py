@@ -14,13 +14,13 @@ class downloader:
         """specify [name,[path,[thread_count]
 
         args:
-            :param:    file_name       :
-            :param:    file_path       :
-            :param:    max_thread      :
-            :param:    force           :
-            :param:    verify          :
-            :param:    fix_try         :
-            :param:    block_size      :
+            ::param:    file_name       :
+            ::param:    file_path       :
+            ::param:    max_thread      :
+            ::param:    force           :
+            ::param:    verify          :
+            ::param:    fix_try         :
+            ::param:    block_size      :
         """
 
         self.file.path = unicode(kwargs.get('file_path', ''))
@@ -73,13 +73,13 @@ class downloader:
         """open url to get ready to download.
 
         args:
-            :param:    file_name       :
-            :param:    file_path       :
-            :param:    max_thread      :
-            :param:    force           :
-            :param:    verify          :
-            :param:    fix_try         :
-            :param:    block_size      :
+            ::param:    file_name       :
+            ::param:    file_path       :
+            ::param:    max_thread      :
+            ::param:    force           :
+            ::param:    verify          :
+            ::param:    fix_try         :
+            ::param:    block_size      :
 
         """
         if not self.url:
