@@ -1,3 +1,10 @@
+******
+*******
+# 花了一个多星期重构了程序，过几天后将上传代码。
+# 敬请期待！！
+*******
+******
+
 # not-bad-downloader ( NB dwonloader )
 multi-server, auto-range, completeness-validate...
 
