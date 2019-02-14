@@ -2,9 +2,13 @@
 # Name:        nbdler/__init__.py
 # Author:      ZSAIm
 #
+# Github:	   https://github.com/ZSAIm/nbdler
 # Created:     20-Jan-2019
 # License:     Apache-2.0
 #---------------------------------------------------------------------------
+
+
+
 
 
 import os
@@ -23,6 +27,4 @@ __all__ = ['os', 'threading', 'math', 'time', 'logging', 'urllib', 'urllib2',
            're', 'cookielib', 'socket', 'ssl', 'zlib']
 
 from nbdler import open
-from DLHandler import Handler
-
-
+from DLManager import Manager

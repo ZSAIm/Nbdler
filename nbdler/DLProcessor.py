@@ -125,7 +125,12 @@ class Processor(object):
                 return
                 # raise Exception('404')
             elif status != 206:
-                raise Exception('UrlExpire', status)
+                msg = 'ErrorCode: %d' % status
+                extra = {'progress': '%-10d-%10d' % (self.progress.begin, self.progress.end), 'urlid': self.urlid}
+                logger.critical(msg, extra=extra)
+                self.__404__(sock)
+                return
+                # raise Exception('UrlExpire', status)
 
             self.__404_counter__ = 0
 

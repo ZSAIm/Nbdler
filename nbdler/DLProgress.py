@@ -351,15 +351,20 @@ class GlobalProgress(object, Packer):
         self.run()
 
     def isEnd(self):
-        for i in self.progresses.values():
-            if not i.isEnd():
-                break
-        else:
-            if not self.__buff_lock__.locked():
-                return True
-            else:
-                return False
-        return False
+        # for i in self.progresses.values():
+        #     if not i.isEnd():
+        #         break
+        # else:
+        #     if not self.progresses:
+        #         return False
+        #     if not self.__buff_lock__.locked():
+        #         return True
+        #     else:
+        #         return False
+        # return False
+        return self.status.endflag and not self.__buff_lock__.locked()
+
+
 
     def getLeft(self):
         gobyte = 0

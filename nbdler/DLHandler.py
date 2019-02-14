@@ -179,6 +179,7 @@ class Handler(object, Packer):
         if self.__new_project__:
             self.file.makeFile()
             self.globalprog.allotter.makeBaseConn()
+            self.globalprog.save()
 
         self.globalprog.run()
 
