@@ -3,7 +3,7 @@
 from packer import Packer
 import time,threading
 
-class Manager(Packer, object):
+class Manager(object, Packer):
     def __init__(self):
         self.tasks = {}
 
@@ -20,29 +20,19 @@ class Manager(Packer, object):
     def __inspector__(self):
 
         while True:
-            # tmp = self.queue.run[:]
-            # for i in tmp:
-            #     if self.tasks[i].isEnd():
-            #         self.tasks[i].close()
-            #         self.queue.run.remove(i)
-            #         self.queue.done.append(i)
-
-            self.checkRunQueue()
+            tmp = self.queue.run[:]
+            for i in tmp:
+                if self.tasks[i].isEnd():
+                    self.tasks[i].close()
+                    self.queue.run.remove(i)
+                    self.queue.done.append(i)
 
             self.run()
 
             if not self.queue.undone and self.isEnd():
-                self.checkRunQueue()
                 break
             time.sleep(1)
 
-    def checkRunQueue(self):
-        tmp = self.queue.run[:]
-        for i in tmp:
-            if self.tasks[i].isEnd():
-                self.tasks[i].close()
-                self.queue.run.remove(i)
-                self.queue.done.append(i)
 
     def getHandler(self, name=None, id=None):
         if name is None and id is None:
@@ -189,7 +179,7 @@ class Manager(Packer, object):
 
     def config(self, **kwargs):
         for i, j in self.__config_params__():
-            if i in kwargs:
+            if kwargs.has_key(i):
                 setattr(self, j, kwargs[i])
 
     def __config_params__(self):

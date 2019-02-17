@@ -43,12 +43,17 @@ class Inspector(object):
         while True:
             if self.globalprog.status.endflag or self.globalprog.status.pauseflag:
                 break
+            msg = 'SelfCheck: +++++++++++'
+            extra = {'progress': '%010s-%010s' % ('..........', '..........'), 'urlid': '.'}
+            logger.debug(msg, extra=extra)
 
-            progresses = self.globalprog.progresses.copy()
-            for i in progresses.values():
-                i.processor.run()
+            for i in self.globalprog.progresses.values():
+                i.processor.selfCheck()
 
 
+            msg = 'SelfCheck: -----------'
+            extra = {'progress': '%010s-%010s' % ('..........', '..........'), 'urlid': '.'}
+            logger.debug(msg, extra=extra)
 
             time.sleep(2)
 
@@ -56,6 +61,9 @@ class Inspector(object):
         while True:
             if self.globalprog.status.endflag or self.globalprog.pause_req or self.globalprog.status.pauseflag:
                 break
+            msg = 'Allotter: +++++++++++'
+            extra = {'progress': '%010s-%010s' % ('..........', '..........'), 'urlid': '.'}
+            logger.debug(msg, extra=extra)
             with self.allotter.__allotter_lock__:
                 for i in range(self.handler.url.max_conn - len(self.globalprog.getConnections())):
 
@@ -71,6 +79,9 @@ class Inspector(object):
                             extra = {'progress': '%010s-%010s' % ('..........', '..........'), 'urlid': '.'}
                             logger.info(msg, extra=extra)
                             progress.run()
+            msg = 'Allotter: -----------'
+            extra = {'progress': '%010s-%010s' % ('..........', '..........'), 'urlid': '.'}
+            logger.debug(msg, extra=extra)
             time.sleep(3)
 
     # def __limiter__(self):

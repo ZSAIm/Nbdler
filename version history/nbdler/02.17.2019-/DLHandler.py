@@ -5,36 +5,24 @@ from DLProgress import *
 from packer import Packer
 import time, os
 
-
-LOG_FORMAT = "%(asctime)s,%(msecs)03d - %(levelname)s - %(threadName)-12s - (%(progress)s)[%(urlid)s] - %(message)s"
-
-logging.basicConfig(format=LOG_FORMAT, datefmt="%m/%d/%Y %H:%M:%S", level=logging.DEBUG)
-
-logger = logging.getLogger('nbdler')
+# MANUAL = True
+#
+# AUTO = False
 
 
-__URL_NODE_PARAMS__ = {
-    'urls': 'url',
-    'cookies': 'cookie',
-    'hosts': 'host',
-    'ports': 'port',
-    'paths': 'path',
-    'headers': 'headers',
-    'max_threads': 'max_thread'
-}
-
-class Handler(Packer, object):
+class Handler(object, Packer):
 
     def __init__(self):
         self.url = UrlPool()
         self.file = File()
-        self.__auto_global__ = GlobalProgress(self, AUTO)
+        self.auto_globalprog = GlobalProgress(self, AUTO)
 
-        self.__manual_global__ = GlobalProgress(self, MANUAL)
+        self.manual_globalprog = GlobalProgress(self, MANUAL)
 
         self.__new_project__ = True
+        # self.__mode__ = AUTO
 
-        self.globalprog = self.__auto_global__
+        self.globalprog = self.auto_globalprog
 
     def uninstall(self):
         pass
@@ -43,30 +31,9 @@ class Handler(Packer, object):
     def install(self, GlobalProgress):
         self.globalprog = GlobalProgress
 
-    def batchAdd(self, **kwargs):
-        global __URL_NODE_PARAMS__
-
-        pack_yield = []
-        iter_len = len(kwargs.get('urls', []))
-        for i in range(iter_len):
-            node = {}
-            for m, n in __URL_NODE_PARAMS__.items():
-                if m in kwargs:
-                    if len(kwargs[m]) == 1:
-                        node[n] = kwargs[m][0]
-                    elif len(kwargs[m]) == iter_len:
-                        node[n] = kwargs[m][i]
-                    else:
-                        raise Exception('IterLenError')
-
-            pack_yield.append(node)
-
-        for iter_kw in pack_yield:
-            self.addNode(**iter_kw)
-
 
     def addNode(self, *args, **kwargs):
-        self.url.addNode(*args, **kwargs)
+        self.url.add(*args, **kwargs)
 
         if self.file.size == -1:
             self.file.size = self.url.getFileSize()
@@ -87,7 +54,7 @@ class Handler(Packer, object):
                     self.url.delete(i.id)
 
     def insert(self, begin, end, thread_num=1):
-        self.globalprog = self.__manual_global__
+        self.globalprog = self.manual_globalprog
 
         put_urlid = self.globalprog.allotter.assignUrl()
         if put_urlid != -1:
@@ -101,8 +68,10 @@ class Handler(Packer, object):
         if not self.globalprog.progresses:
             raise Exception('EmptyEqueue')
 
-        self.globalprog = self.__manual_global__
-
+        self.globalprog = self.manual_globalprog
+        # self.__manual__ = True
+        # self.globalprog.__manual__ = True
+        # self.__mode__ = MANUAL
         self.globalprog.run()
 
 
@@ -147,18 +116,14 @@ class Handler(Packer, object):
         return self.globalprog.allotter.getUrlsThread()
 
     def __config_params__(self):
-        return {'filename': 'file.name',
-                'filepath': 'file.path',
-                'block_size': 'file.BLOCK_SIZE',
-                'max_conn': 'url.max_conn',
-                'buffer_size': 'file.buffer_size',
-                'max_speed': 'url.max_speed',
-        }
+        return [('filename', 'file.name'), ('filepath', 'file.path'), ('block_size', 'file.BLOCK_SIZE'),
+                ('max_conn', 'url.max_conn'), ('buffer_size', 'file.buffer_size'),
+                ('max_speed', 'url.max_speed')]
 
     def config(self, **kwargs):
 
-        for i, j in self.__config_params__().items():
-            if i in kwargs:
+        for i, j in self.__config_params__():
+            if kwargs.has_key(i):
                 objs = j.split('.')
                 if len(objs) == 1:
                     setattr(self, objs[0], kwargs[i])
@@ -210,16 +175,13 @@ class Handler(Packer, object):
 
     def run(self):
         # self.__mode__ = AUTO
-        self.globalprog = self.__auto_global__
+        self.globalprog = self.auto_globalprog
         if self.__new_project__:
             self.file.makeFile()
             self.globalprog.allotter.makeBaseConn()
             self.globalprog.save()
 
         self.globalprog.run()
-
-    def pause(self):
-        self.globalprog.pause()
 
     def isEnd(self):
         return self.globalprog.isEnd()
@@ -229,7 +191,9 @@ class Handler(Packer, object):
         self.__new_project__ = False
 
 
+
+
     def __packet_params__(self):
-        return ['url', 'file', '__auto_global__']
+        return ['url', 'file', 'auto_globalprog']
 
 

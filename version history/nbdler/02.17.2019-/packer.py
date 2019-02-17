@@ -18,8 +18,7 @@ class Packer:
 
             elif isinstance(obj, dict):
                 tmpdict = {}
-                obj_tmp = obj.copy()
-                for m, n in obj_tmp.items():
+                for m, n in obj.items():
                     if 'pack' in dir(n):
                         tmpdict[m] = n.pack()
                     else:
@@ -42,7 +41,7 @@ class Packer:
 
     def unpack(self, packet):
         unpack_order = packet.get('[order]', None)
-        if '[order]' in packet:
+        if packet.has_key('[order]'):
             del packet['[order]']
 
         if unpack_order:

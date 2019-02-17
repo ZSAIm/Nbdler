@@ -2,29 +2,39 @@
 # Name:        nbdler/__init__.py
 # Author:      ZSAIm
 #
-# Github:	   https://github.com/ZSAIm/nbdler
 # Created:     20-Jan-2019
 # License:     Apache-2.0
 #---------------------------------------------------------------------------
 
 
 
-
-
-import os
-import threading
-import math
-import time
-import logging
-import urllib, urllib2
-import re
-import cookielib
-import socket, ssl
-import zlib
-
-
-__all__ = ['os', 'threading', 'math', 'time', 'logging', 'urllib', 'urllib2',
-           're', 'cookielib', 'socket', 'ssl', 'zlib']
-
-from nbdler import open
 from DLManager import Manager
+import DLHandler
+import zlib
+import io
+from wsgiref.headers import Headers
+
+__all__ = ['open', 'DLHandler']
+
+import nbdler
+
+
+
+def open(fp=None, **kwargs):
+    dlh = DLHandler.Handler()
+    if fp:
+        if 'read' in dir(fp):
+            fp.seek(0)
+            packet = fp.read()
+        else:
+            with io.open(fp + '.nbdler', 'rb') as f:
+                packet = f.read()
+        packet = eval(bytes.decode(zlib.decompress(packet)))
+        dlh.unpack(packet)
+    else:
+        dlh.config(**kwargs)
+        dlh.batchAdd(**kwargs)
+
+    return dlh
+
+

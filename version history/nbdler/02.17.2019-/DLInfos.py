@@ -1,23 +1,11 @@
 # -*- coding: UTF-8 -*-
 
-import sys
-if sys.version_info >= (3, 0):
-    import http.cookiejar as cookiejar
-    import urllib.parse as urllib_parse
-    import urllib.request as urllib_request
-
-if sys.version_info < (3, 0):
-    import cookielib as cookiejar
-    import urllib as urllib_parse
-    import urllib2 as urllib_request
-
-from wsgiref.headers import Headers
-import re
-
+import urllib, urllib2
+import cookielib, re
 from packer import Packer
 import threading
 
-def _content_type(type):
+def content_type(type):
     dict = {
         'application/octet-stream': '',
         'image/tiff': '.tif',
@@ -47,14 +35,8 @@ def _content_type(type):
 DEFAULT_MAX_THREAD = 5
 DEFAULT_MAX_CONNECTIONS = 16
 
-HEADERS_CHROME = Headers([
-    ('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'),
-    ('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'),
-    ('Accept-Encoding', 'gzip, deflate, br'),
-    ('Accept-Language', 'zh-CN,zh;q=0.9')
-])
 
-class UrlPool(Packer, object):
+class UrlPool(object, Packer):
     def __init__(self, max_conn=DEFAULT_MAX_CONNECTIONS, max_speed=-1):
         self.list = []
         self.dict = {}
@@ -64,9 +46,9 @@ class UrlPool(Packer, object):
         self.max_conn = max_conn
         self.max_speed = max_speed
 
-    def addNode(self, id=-1, url='', cookie='', headers=HEADERS_CHROME,
-            host=None, port=None, path=None, protocol=None,
-            proxy=None, max_thread=-1):
+    def add(self, id=-1, url='', cookie='', headers=None,
+                 host=None, port=None, path=None, protocol=None,
+                 proxy=None, max_thread=-1):
 
         if not url:
             return False
@@ -75,35 +57,16 @@ class UrlPool(Packer, object):
 
         urlobj = Url(id, url, cookie, headers, host, port, path, protocol, proxy, max_thread)
         urlobj.activate()
+        self.id_map[id] = True
 
         self.list.append(urlobj)
         self.dict[id] = urlobj
-        self.id_map[id] = True
 
-
-    def getNextId(self, cur_id):
-
-        next_id = cur_id + 1
-        while True:
-            if next_id == cur_id:
-                raise Exception('NoUrlToSwitch', 'NoValidUrl')
-            if next_id >= len(self.id_map):
-                next_id = 0
-            if self.id_map[next_id]:
-                break
-        return next_id
-
-    def hasUrl(self, Urlid):
-        return Urlid in self.getUrls()
-    
     def getUrls(self):
         return self.dict
 
-    def getUrl(self, Urlid):
-        return self.dict[Urlid]
-
-    # def hasUrl(self, url):
-    #     return url in self.dict.keys()
+    def hasUrl(self, url):
+        return url in self.dict.keys()
 
     def newID(self):
         for i, j in enumerate(self.id_map):
@@ -126,13 +89,11 @@ class UrlPool(Packer, object):
         if not self.list:
             raise Exception('EmptyUrlpool')
 
-        content_length = int(self.list[0].target.headers.get('Content-Length', -1))
-
-        # if content_length == -1:
-        #     raise Exception('"content-length" NO FOUND', content_length)
-
+        nedsize = self.list[0].target.headers.get('content-length', -1)
+        if nedsize == -1:
+            raise Exception('"content-length" NO FOUND', nedsize)
         for i in self.list[1:]:
-            if int(i.target.headers.get('Content-Length', -1)) != content_length:
+            if i.target.headers.get('content-length', -1) != nedsize:
                 return False
 
         return True
@@ -141,19 +102,19 @@ class UrlPool(Packer, object):
         if not self.matchSize():
             raise Exception('FileSizeNoMatch')
 
-        content_length = int(self.list[0].target.headers.get('Content-Length', -1))
-
-        return content_length
-
+        return int(self.list[0].target.headers.get('content-length', -1))
+    # def
 
     def getFileName(self, index=0):
+        # assert self.list is []
+
         if not self.list:
             return None
 
-        ctd = self.list[index].target.headers.get('Content-Disposition')
+        ctd = self.list[index].target.headers.get('content-disposition')
         if ctd is not None:
             filename = re.findall(r'filename="(.*?)"', ctd)
-            if filename:
+            if filename != []:
                 return filename[0]
 
         _urlpath = self.list[0].path
@@ -162,15 +123,13 @@ class UrlPool(Packer, object):
 
         if filename != '':
             if '.' not in filename or filename.split('.')[-1] == '':
-
-                extension = _content_type(self.list[index].target.headers.get('Content-Type'))
+                extension = unicode(content_type(self.list[index].target.headers.get('content-type')))
                 filename = filename + extension
 
         else:
             filename = None
 
         return filename
-
 
     def __packet_params__(self):
         return ['dict', 'id_map', 'max_conn', 'max_speed']
@@ -185,20 +144,21 @@ class UrlPool(Packer, object):
 
 
 class Target(object):
-    def __init__(self, url=None, headers=None):
-        self.url = None
-        self.protocol = self.host = self.port = self.path = None
-        self.headers = None
-
-        if self.url:
-            self.update(url, headers)
-
-    def load(self, url):
+    def __init__(self, url, cookiejar, headers):
         self.url = url
+        self.cookiejar = cookiejar
 
-        self.protocol, s1 = urllib_parse.splittype(self.url)
-        s2, self.path = urllib_parse.splithost(s1)
-        self.host, self.port = urllib_parse.splitport(s2)
+        self.protocol = None
+        self.host = None
+        self.port = None
+        self.path = None
+
+        self.headers = headers
+        self.proxy = None
+
+        self.protocol, s1 = urllib.splittype(self.url)
+        s2, self.path = urllib.splithost(s1)
+        self.host, self.port = urllib.splitport(s2)
 
         if not self.port:
             if self.protocol == 'http':
@@ -206,17 +166,10 @@ class Target(object):
             elif self.protocol == 'https':
                 self.port = 443
 
-        self.headers = None
 
-    def update(self, url=None, headers=None):
-        if url:
-            self.load(url)
-        if headers:
-            self.headers = Headers(headers)
+class Url(object, Packer):
 
-
-class Url(Packer, object):
-    def __init__(self, id, url, cookie='', headers=HEADERS_CHROME,
+    def __init__(self, id, url, cookie='', headers=None,
                  host=None, port=None, path=None, protocol=None,
                  proxy=None, max_thread=-1):
 
@@ -232,33 +185,31 @@ class Url(Packer, object):
 
         self.cookie = cookie
 
-        self.headers = headers
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'zh-CN,zh;q=0.9'
+        }
+        if headers:
+            self.headers = headers
 
         self.proxy = proxy
-        self.target = Target()
+        self.target = None
 
         self.target_lock = threading.Lock()
 
         self.max_thread = max_thread
 
 
-    def reload(self):
-        self.target.load(self.url)
-
-    # def update(self):
-    #     pass
-
-
-
-
     def __setattr__(self, key, value):
         if key == 'url':
             object.__setattr__(self, key, value)
-            self.protocol, s1 = urllib_parse.splittype(self.url)
+            self.protocol, s1 = urllib.splittype(self.url)
             if s1:
-                s2, self.path = urllib_parse.splithost(s1)
+                s2, self.path = urllib.splithost(s1)
                 if s2:
-                    self.host, self.port = urllib_parse.splitport(s2)
+                    self.host, self.port = urllib.splitport(s2)
 
             if not getattr(self, 'port', None):
                 if self.protocol == 'http':
@@ -270,36 +221,23 @@ class Url(Packer, object):
             object.__setattr__(self, key, value)
 
     def activate(self):
-        res, cookie_dict = self.__collect__()
-        if res.getcode() == 200:
-            headers_items = ()
-            if sys.version_info < (3, 0):
-                headers_items = res.info().items()
-
-            if sys.version_info >= (3, 0):
-                headers_items = res.getheaders()
-
-            self.target.update(res.geturl(), headers_items)
-            # self.target = Target(res.url, cookiejar, res.headers.dict.copy())
+        res, cookiejar = self.__collect__()
+        if res.code == 200:
+            self.target = Target(res.url, cookiejar, res.headers.dict.copy())
             # self.target.proxy = self.proxy
         else:
             raise Exception('UrlNoRespond or UrlError')
 
-
     def __collect__(self):
-
-        Cookiejar = cookiejar.CookieJar()
-        opener = urllib_request.build_opener(urllib_request.HTTPCookieProcessor(Cookiejar))
-        _header = dict(self.headers.items())
+        cookiejar = cookielib.CookieJar()
+        opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookiejar))
+        _header = self.headers.copy()
         if self.cookie:
             _header.update({'Cookie': self.cookie})
-        req = urllib_request.Request(self.url, headers=_header, origin_req_host=self.host)
+        req = urllib2.Request(self.url, headers=_header, origin_req_host=self.host)
         res = opener.open(req)
+        return res, cookiejar
 
-        return res, Cookiejar._cookies
-
-    def getHeader(self, name, default=None):
-        return self.headers.get(name, default)
 
     def __packet_params__(self):
         return ['id', 'url', 'host', 'port', 'protocal', 'cookie', 'proxy', 'max_thread', 'headers']
@@ -308,7 +246,7 @@ class Url(Packer, object):
 
 import os
 
-class File(Packer, object):
+class File(object, Packer):
     def __init__(self, name='', path='', size=-1, block_size=1024*1024):
         self.path = path
 
@@ -325,7 +263,7 @@ class File(Packer, object):
 
         self.buffer_size = 20 * 1024 * 1024
 
-        # self.nbdler_fp = None
+        self.nbdler_fp = None
 
 
     def __setattr__(self, key, value):
@@ -337,7 +275,7 @@ class File(Packer, object):
 
     def makeFile(self, withdir=True):
 
-        self.name = self.checkName()
+        # self.name = self.checkName()
 
         if withdir:
             if self.path and not os.path.exists(self.path):
@@ -349,6 +287,9 @@ class File(Packer, object):
         with open(os.path.join(self.path, self.name), 'wb') as f:
             f.seek(self.size - 1)
             f.write(b'\x00')
+
+        # with open(os.path.join(self.path, self.name + '.nbdler'), 'wb') as f:
+        #     pass
 
 
 
@@ -376,6 +317,8 @@ class File(Packer, object):
 
 
 
+
+
 import io
 
 
@@ -387,11 +330,10 @@ def segToRange(seg):
 
 class FileStorage(object):
     def __init__(self):
-        self._segs = {}
+        self.segs = {}
 
         self.startpos = 0
         self.offset = 0
-        self.closed = False
 
 
     def __enter__(self):
@@ -400,34 +342,34 @@ class FileStorage(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
+
     def insert(self, begin, end):
         if self.getParent(begin):
             raise Exception('SegsExistAlready')
-        self._segs['%d-%d' % (begin, end)] = io.BytesIO()
+        self.segs['%d-%d' % (begin, end)] = io.BytesIO()
 
     def read(self, n=-1):
         seg = self.check()
         Range = segToRange(seg)
-        self._segs[seg].seek(self.offset - Range[0], self.startpos)
+        self.segs[seg].seek(self.offset - Range[0], self.startpos)
 
-        return self._segs[seg].read(n)
+        return self.segs[seg].read(n)
 
     def write(self, s):
         seg = self.check()
         Range = segToRange(seg)
 
         if self.startpos - Range[0] + self.offset > Range[1]:
-            raise Exception('PositionExceed: self.startpos - Range[0] + self.offset > Range[1]',
-                            self.startpos - Range[0] + self.offset, Range[1])
+            raise Exception('PositionExceed: self.startpos - Range[0] + self.offset > Range[1]', self.startpos - Range[0] + self.offset, Range[1])
 
-        self._segs[seg].seek(self.offset - Range[0], self.startpos)
-        self._segs[seg].write(s)
+        self.segs[seg].seek(self.offset - Range[0], self.startpos)
+        self.segs[seg].write(s)
 
         self.offset += len(s)
 
 
     def getParent(self, pos):
-        for i, j in self._segs.items():
+        for i, j in self.segs.items():
             _range = segToRange(i)
             if pos >= _range[0] and pos < _range[1]:
                 retrange = i
@@ -455,23 +397,20 @@ class FileStorage(object):
 
 
     def close(self):
-        for i in self._segs.values():
+        for i in self.segs.values():
             i.close()
 
 
     def getStorageSize(self):
         size = 0
-        for i in self._segs.values():
+        for i in self.segs.values():
             size += len(i.getvalue())
 
         return size
 
     def getvalue(self):
         retvalue = {}
-        for i, j in self._segs.items():
+        for i, j in self.segs.items():
             retvalue[i] = j.getvalue()
 
         return retvalue
-
-
-

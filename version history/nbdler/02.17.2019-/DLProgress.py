@@ -7,7 +7,7 @@ from packer import Packer
 logger = logging.getLogger('nbdler')
 
 
-class TimeStatus(Packer, object):
+class TimeStatus(object, Packer):
     def __init__(self):
         self.go_startTime = None
         self.go_pauseTime = None
@@ -87,7 +87,7 @@ class TimeStatus(Packer, object):
 
 
 
-class Progress(Packer, object):
+class Progress(object, Packer):
     def __init__(self, GlobalProgress, Urlid, begin, end):
 
         self.globalprog = GlobalProgress
@@ -142,20 +142,13 @@ class Progress(Packer, object):
     def isEnd(self):
         return self.status.endflag
 
-    def isPause(self):
-        return self.status.pauseflag
-
-    def isReady(self):
-        return not self.status.go_end and not self.status.pauseflag
-
+    def switch(self):
+        pass
 
     def getAvgSpeed(self):
         duration = self.status.getGoDuration()
         return self.go_inc * 1.0 / duration if duration > 0 else 0
 
-    def setNewRange(self, Range):
-        self.begin = Range[0]
-        self.end = Range[1]
 
     def getLeft(self):
         return self.length - self.go_inc
@@ -223,10 +216,7 @@ AUTO = 1
 import threading, math, zlib
 import DLInspector, DLAllotter
 
-
-
-
-class GlobalProgress(Packer, object):
+class GlobalProgress(object, Packer):
     def __init__(self, Handler, mode=AUTO):
 
         self.progresses = {}
@@ -253,6 +243,7 @@ class GlobalProgress(Packer, object):
 
         self.__mode__ = mode
 
+
     def insert(self, Urlid, begin, end):
         with self.__progresses_lock__:
             if not self.block_map:
@@ -263,8 +254,7 @@ class GlobalProgress(Packer, object):
                     raise Exception('ProgressOverlap')
 
             prog = Progress(self, Urlid, begin, end)
-            block_index = int(prog.begin * 1.0 / self.handler.file.BLOCK_SIZE)
-            self.block_map[block_index] = Urlid
+            self.block_map[int(prog.begin * 1.0 / self.handler.file.BLOCK_SIZE)] = Urlid
             self.progresses['%d-%d' % (begin, end)] = prog
 
         return prog
@@ -293,30 +283,29 @@ class GlobalProgress(Packer, object):
             self.status.endGo()
             self.close()
 
+
     def makePause(self):
         for i, j in self.progresses.items():
             with j.processor.__opa_lock__:
                 if not j.status.go_end and not j.status.pauseflag:
                     j.processor.pause()
 
-    def isAllPause(self):
-        self.makePause()
-        for i in self.progresses.values():
-            if not i.isPause() and not i.isGoEnd():
-                break
-        else:
-            if not self.allotter.__allotter_lock__.locked():
-                return True
-
-        return False
-
     def pause(self):
 
         self.pause_req = True
 
+
         while True:
-            if self.isAllPause():
-                break
+
+            self.makePause()
+
+            for i in self.progresses.values():
+                if not i.status.pauseflag and not i.status.go_end:
+                    break
+            else:
+                if not self.allotter.__allotter_lock__.locked():
+                    break
+
             if self.isEnd():
                 break
             time.sleep(0.1)
@@ -350,7 +339,7 @@ class GlobalProgress(Packer, object):
         onlines = []
         with self.__progresses_lock__:
             for i in self.progresses.values():
-                if i.processor.isRunning():
+                if i.processor.isOnline():
                     onlines.append(i)
 
         return onlines
@@ -362,11 +351,20 @@ class GlobalProgress(Packer, object):
         self.run()
 
     def isEnd(self):
-
+        # for i in self.progresses.values():
+        #     if not i.isEnd():
+        #         break
+        # else:
+        #     if not self.progresses:
+        #         return False
+        #     if not self.__buff_lock__.locked():
+        #         return True
+        #     else:
+        #         return False
+        # return False
         return self.status.endflag and not self.__buff_lock__.locked()
 
-    def isGoEnd(self):
-        return self.status.go_end
+
 
     def getLeft(self):
         gobyte = 0
@@ -377,10 +375,7 @@ class GlobalProgress(Packer, object):
         return self.handler.file.size - gobyte
 
     def getAvgSpeed(self):
-        if self.status.go_startTime is not None and not self.status.endflag:
-            totaltime = time.clock() - self.status.go_startTime
-        else:
-            totaltime = 0
+        totaltime = time.clock() - self.status.go_startTime if self.status.go_startTime is not None and not self.status.endflag else 0
 
         totaltime += self.status.go_lastTime
 
@@ -396,16 +391,14 @@ class GlobalProgress(Packer, object):
             if self.piece.last_left is None:
                 self.piece.last_left = curleft
             if self.piece.last_clock is None:
-                if self.piece.start_clock:
-                    self.piece.last_clock = self.piece.start_clock
-                else:
-                    self.piece.last_clock = curclock
+                self.piece.last_clock = self.piece.start_clock if self.piece.start_clock else curclock
 
             incbyte = self.piece.last_left - curleft
             incclock = curclock - self.piece.last_clock
 
-            # if incbyte < 0:
-            #     pass
+            if incbyte < 0:
+                print self.piece.last_left, curleft
+                pass
 
             if update:
                 self.piece.last_left = curleft
@@ -425,8 +418,8 @@ class GlobalProgress(Packer, object):
 
 
     def releaseBuffer(self):
-        # if self.__buff_lock__.locked():
-        #     return
+        if self.__buff_lock__.locked():
+            return
         with self.__buff_lock__:
             buffqueue = []
 
@@ -451,9 +444,7 @@ class GlobalProgress(Packer, object):
                         f.seek(progress.begin + progress.done_inc)
                         f.write(progress.processor.buff)
                         progress.done(len(progress.processor.buff))
-                        progress.processor.buff = b''
-                f.flush()
-            # f.close()
+                        progress.processor.buff = ''
 
             self.save()
             self.__buff_counter__ = 0
@@ -463,7 +454,7 @@ class GlobalProgress(Packer, object):
             logger.info(msg, extra=extra)
 
 
-    def checkBuffer(self, bytelen):
+    def checkBuffer(self, Progress, bytelen):
         self.__buff_counter__ += bytelen
 
         if self.__buff_counter__ >= self.handler.file.buffer_size:
@@ -474,14 +465,14 @@ class GlobalProgress(Packer, object):
     def save(self):
         if not self.__packet_frame__:
             self.__packet_frame__ = self.handler.pack()
-        self.__packet_frame__['__auto_global__'] = self.pack()
+        self.__packet_frame__['globalprog'] = self.pack()
 
-        packet = zlib.compress(str.encode(str(self.__packet_frame__)), zlib.Z_BEST_COMPRESSION)
+        packet = zlib.compress(str(self.__packet_frame__))
 
         with open(os.path.join(self.handler.file.path, self.handler.file.name + '.nbdler'), 'wb') as f:
             f.write(packet)
             f.flush()
-        pass
+
 
     def askWait(self, msec):
         for i in self.progresses.values():
@@ -512,19 +503,9 @@ class GlobalProgress(Packer, object):
         else:
             return []
 
-    def cut(self, Progress, Range):
-        with self.__progresses_lock__:
-            self.progresses['%d-%d' % (Progress.begin, Range[0])] = Progress
-            del self.progresses['%d-%d' % (Progress.begin, Progress.end)]
-            Progress.setNewRange([Progress.begin, Range[0]])
 
     def __packet_params__(self):
         return ['status', 'progresses']
-
-    def pack(self):
-        with self.__progresses_lock__:
-            return Packer.pack(self)
-
 
     def unpack(self, packet):
         Packer.unpack(self, packet)
@@ -548,8 +529,7 @@ class GlobalProgress(Packer, object):
     def __del__(self):
         self.releaseBuffer()
         if self.__mode__ == AUTO:
-            if not self.isEnd():
-                self.save()
+            self.save()
 
 
 
