@@ -1,11 +1,14 @@
 
-# nbdler (not-bad-downloader)
+# Nbdler (Not-Bad-Downloader)
 
-**基于python所编写的多功能HTTP/HTTPS下载模块。**
+**基于python所编写的多线程HTTP/HTTPS下载模块。**
 
-**A mutifunction HTTP/HTTPS downloader for python2/3.**
 
 ****
+
+## 本项目会跟随另一个项目： https://github.com/ZSAIm/iqiyi-parser 进行更新。
+
+
 
 ## 特征
 * 支持断点续传。
@@ -14,6 +17,13 @@
 * 自动分片控制管理。
 
 ## 更新说明
+* **2019/04/25**
+	* 添加方法：线程阻塞join，安全关闭线程shutdown。
+	* 支持多线程字段自定义，可通过参数range_format控制，以适应多种多线程方式。(默认:　Range: bytes=%d-%d)
+	* 提高线程池稳定性。
+	* 修复ssl握手错误： sslv3 alert handshake failure (_ssl.c:646)
+	* 修复模块的导出错误问题。
+	* 优化若干bug。
 * **2019/04/12**
 	* 加入线程池来管理线程。
 	* 修复线程失控问题。
@@ -84,6 +94,7 @@
 
 
 
+# 以下使用方法一部分已不可用，等有心情了再进行修改使用说明。
 
 ## nbdler.open()可控参数
 ### 全局参数：
@@ -321,8 +332,6 @@ dlm.isEnd()
 
 ```
 
-# TO-DO
-* [ ] 优化DLInfo模块结构。
 
 # LICENSE
 Apache 2.0
