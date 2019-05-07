@@ -384,17 +384,22 @@ class File(Packer, object):
         thrs = self.parent.thrpool.getThreadsFromName('Nbdler-AddNode')
         if len(thrs) == 1 and self.size == -1:
             thrs[0].join()
+            if self.parent.shutdown_flag:
+                return False
         else:
             while len(self.parent.thrpool.getThreadsFromName('Nbdler-AddNode')):
                 if self.size != -1:
                     break
+                if self.parent.shutdown_flag:
+                    return False
                 time.sleep(0.01)
             else:
                 if self.size == -1:
-                    return
+                    return False
 
         if self.size == -1:
-            raise Exception('UrlTimeout.')
+            return False
+            # raise Exception('UrlTimeout.')
 
         if withdir:
             try:
@@ -407,8 +412,12 @@ class File(Packer, object):
                 raise Exception('DirNoFound', self.path)
 
         with open(os.path.join(self.path, self.name), 'wb') as f:
+            if self.size == 0:
+                f.write(b'\x00')
+                return
             f.seek(self.size - 1)
             f.write(b'\x00')
+        return True
 
     def checkName(self):
 
