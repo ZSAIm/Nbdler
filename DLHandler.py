@@ -32,7 +32,7 @@ class Handler(Packer, object):
         self.url = UrlPool(self)
         self.file = File(self)
 
-        self.thrpool = ThreadPool()
+        self.thrpool = ThreadPool(self)
 
         self.__globalprog__ = GlobalProgress(self, AUTO)
 
@@ -40,10 +40,12 @@ class Handler(Packer, object):
 
         self.globalprog = self.__globalprog__
 
-        self.shutdown_flag = False
+        # self.shutdown_flag = False
 
         self._wait_for_run = False
         self._batchnode_bak = None
+
+        self._daemon = False
 
     def uninstall(self):
         self.globalprog = self.__globalprog__
@@ -105,8 +107,8 @@ class Handler(Packer, object):
 
 
     def join(self):
-        while not self.thrpool.isAllDead():
-            time.sleep(0.01)
+        self.globalprog.join()
+
 
     def __config_params__(self):
         return {'filename': 'file.name',
@@ -115,11 +117,10 @@ class Handler(Packer, object):
                 'max_conn': 'url.max_conn',
                 'buffer_size': 'file.buffer_size',
                 'max_speed': 'url.max_speed',
-                'wait_for_run': '_wait_for_run'
+                'wait_for_run': '_wait_for_run',
+                'daemon': '_daemon',
         }
 
-    # def setRangeFormat(self, range_format='Range: bytes=%d-%d'):
-    #     self.globalprog.setRangeFormat(range_format)
 
     def config(self, **kwargs):
 
@@ -169,6 +170,9 @@ class Handler(Packer, object):
         self.uninstall()
         return damage
 
+
+    def is_shutdown(self):
+        return self.globalprog.shutdown_flag
 
     def fix(self, segs):
         self.fix(segs)
@@ -235,8 +239,9 @@ class Handler(Packer, object):
 
             self.globalprog.allotter.makeBaseConn()
             self.globalprog.save()
-
+        self.__new_project__ = False
         self.globalprog.run()
+
 
     def run(self):
         self.thrpool.Thread(target=self.__run__, name='Nbdler-Launch').start()
@@ -253,9 +258,9 @@ class Handler(Packer, object):
 
     def shutdown(self):
         # if not self.isEnd():
-        self.shutdown_flag = True
+        self.globalprog.shutdown_flag = True
         self.globalprog.shutdown()
-        self.shutdown_flag = False
+        self.globalprog.shutdown_flag = False
 
 
     def __packet_params__(self):
