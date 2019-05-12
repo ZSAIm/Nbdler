@@ -6,7 +6,7 @@ from .packer import Packer
 import threading
 import socket
 import sys
-
+from .DLError import DLUrlError
 import traceback
 
 if sys.version_info >= (3, 0):
@@ -101,16 +101,22 @@ class UrlPool(Packer, object):
                 if isinstance(res, HTTPResponse):
                     break
                 if isinstance(res, HTTPError):
-                    raise res
-                # socket.timeout
+                    if res.code >= 400 and res.code < 500:
+                        _except = DLUrlError(threading.current_thread(), self.parent, res)
+                        self.parent.globalprog.raiseUrlError(_except)
+                        return
+
                 if self.parent.is_shutdown():
                     break
                 if retry_counter != -1:
                     retry_counter -= 1
                     continue
+                time.sleep(0.1)
 
             else:
-                raise Exception('MaxRetryExceed', 'UrlNotRespond')
+                _except = DLUrlError(threading.current_thread(), self.parent, Exception('MaxRetryExceed', 'UrlNotRespond'))
+                self.parent.globalprog.raiseUrlError(_except)
+                return
 
 
         self.id_map[id] = True
@@ -352,7 +358,8 @@ class Url(Packer, object):
         except HTTPError as e:
             # if e.code >= 400 and e.code < 500:
             return e, None
-        except socket.timeout as e:
+
+        except (socket.timeout, URLError) as e:
             return e, None
         except Exception as e:
             traceback.print_exc()

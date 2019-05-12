@@ -23,7 +23,7 @@ __URL_NODE_PARAMS__ = {
     'headers': 'headers',
     'max_threads': 'max_thread',
     'range_formats': 'range_format',
-    'pull_flags': 'pull_flag'
+    # 'pull_flags': 'pull_flag'
 }
 
 class Handler(Packer, object):
@@ -56,6 +56,7 @@ class Handler(Packer, object):
     def __batchAdd__(self, pack_yield):
         for iter_kw in pack_yield:
             self.addNode(**iter_kw)
+
 
     def batchAdd(self, **kwargs):
         global __URL_NODE_PARAMS__
@@ -105,9 +106,19 @@ class Handler(Packer, object):
 
         self.globalprog.run()
 
+    def trap(self):
+        self.globalprog.trap()
+
 
     def join(self):
         self.globalprog.join()
+
+    def isAllDead(self):
+        return self.thrpool.isAllDead()
+
+
+    def isCritical(self):
+        return self.globalprog.isCritical()
 
 
     def __config_params__(self):
@@ -119,6 +130,7 @@ class Handler(Packer, object):
                 'max_speed': 'url.max_speed',
                 'wait_for_run': '_wait_for_run',
                 'daemon': '_daemon',
+                'max_retry': 'url.max_retry'
         }
 
 
@@ -138,6 +150,8 @@ class Handler(Packer, object):
     def close(self):
         if not self.globalprog.isEnd():
             raise Exception('DownloadNotComplete')
+        for i in self.thrpool.getThreadsFromName(name='Nbdler-ReleaseBuffer'):
+            i.join()
         if os.path.isfile(os.path.join(self.file.path, self.file.name + '.nbdler')):
             os.remove(os.path.join(self.file.path, self.file.name + '.nbdler'))
 
@@ -307,3 +321,6 @@ class Handler(Packer, object):
 
     def getUrlsThread(self):
         return self.globalprog.allotter.getUrlsThread()
+
+    def __str__(self):
+        return '[%s] - %s' % (self.file.size, self.file.name)

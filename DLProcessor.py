@@ -109,7 +109,6 @@ class Processor(object):
         return self.progress.globalprog.handler
 
 
-
     def selfCheck(self):
 
         if self.opareq.pause:
@@ -155,16 +154,20 @@ class Processor(object):
 
         conn, res = self.makeConnection()
 
+        self.connection = conn
+        self.respond = res
+
         if res:
             if res.status == 206 or res.status == 200:
                 self.target.update(headers=res.headers._headers, code=res.status)
                 self.err.clear()
                 self.__recv_loop__(conn, res)
-                # self.__206__(conn, res)
-                res.close()
             elif res.status >= 400 and res.status < 500:
-                self.handle_4xx(conn, res)
-                # self.err.http_4xx(conn, res)
+                self.handle_4xx(res)
+            elif res.status == 302:
+                self.target.update(url=res.headers.get('location'))
+
+            res.close()
 
         conn.close()
 
@@ -186,12 +189,10 @@ class Processor(object):
             conn.request('GET', req_path, '', req_headers)
             res = conn.getresponse()
         except socket.timeout as e:
-            self.handle_timeout(conn, e)
-            # self.err.http_timeout(conn, e)
+            self.handle_timeout(e)
         except Exception as e:
             traceback.print_exc()
-            self.handle_unknown(conn, e)
-            # self.err.http_unknown(conn, e)
+            self.handle_unknown(e)
 
         return conn, res
 
@@ -235,29 +236,32 @@ class Processor(object):
 
 
 
-    def handle_unknown(self, conn, res):
+    def handle_unknown(self, res):
+        handler = self.getHandler()
         try:
-            self.err.http_unknown(conn, res)
+            self.err.http_unknown(handler, res)
         except DLUrlError as e:
-            if self.err.getCounter(res.status) >= len(self.getHandler().url.getAllUrl()) * HTTPErrorCounter.ERR_UNKNOWN_THRESHOLD:
+            if self.err.getCounter('unknown') >= len(handler.url.getAllUrl()) * HTTPErrorCounter.ERR_UNKNOWN_THRESHOLD:
                 self.getCritical(e)
             else:
                 self.getSwitch()
 
-    def handle_4xx(self, conn, res):
+    def handle_4xx(self, res):
+        handler = self.getHandler()
         try:
-            self.err.http_4xx(conn, res)
+            self.err.http_4xx(handler, res)
         except DLUrlError as e:
-            if self.err.getCounter(res.status) >= len(self.getHandler().url.getAllUrl()) * HTTPErrorCounter.ERR_4XX_THRESHOLD:
+            if self.err.getCounter(res.status) >= len(handler.url.getAllUrl()) * HTTPErrorCounter.ERR_4XX_THRESHOLD:
                 self.getCritical(e)
             else:
                 self.getSwitch()
 
-    def handle_timeout(self, conn, res):
+    def handle_timeout(self, res):
+        handler = self.getHandler()
         try:
-            self.err.http_timeout(conn, res)
+            self.err.http_timeout(handler, res)
         except DLUrlError as e:
-            if self.err.getCounter('timeout') >= len(self.getHandler().url.getAllUrl())*HTTPErrorCounter.ERR_TIMEOUT_THRESHOLD:
+            if self.err.getCounter('timeout') >= len(handler.url.getAllUrl())*HTTPErrorCounter.ERR_TIMEOUT_THRESHOLD:
                 self.getCritical(e)
 
             else:

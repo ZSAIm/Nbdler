@@ -342,18 +342,7 @@ class GlobalProgress(Packer, object):
                     if j.processor.isRunning():
                         j.processor.pause()
 
-    # def isAllPause(self):
-    #     self.makePause()
-    #     for i in self.progresses.values():
-    #         if not i.isPause() and not i.isGoEnd() and i.processor.isRunning():
-    #             break
-    #     else:
-    #         if not self.allotter.__allotter_lock__.locked():
-    #             return True
-    #
-    #     return False
-
-    def join(self):
+    def trap(self):
         while not self.handler.thrpool.isAllDead():
             if self._urlerror:
                 err = self._urlerror
@@ -362,8 +351,26 @@ class GlobalProgress(Packer, object):
 
             time.sleep(0.01)
 
+
+    def join(self):
+        while not self.handler.thrpool.isAllDead():
+            time.sleep(0.01)
+
     def raiseUrlError(self, dlurlerror):
         self._urlerror = dlurlerror
+
+
+    def isCritical(self):
+        for i in self.progresses.values():
+            if not i.isEnd() and not i.processor.critical:
+                return False
+
+        else:
+            if self.handler.thrpool.getThreadsFromName('Nbdler-AddNode'):
+                return False
+            return True
+
+
 
     def pause(self):
         if self.isEnd():
@@ -384,7 +391,7 @@ class GlobalProgress(Packer, object):
         self.piece.pause()
         self.status.pause()
 
-        self.releaseBuffer()
+        # self.releaseBuffer()
 
         self.save()
 
@@ -523,7 +530,7 @@ class GlobalProgress(Packer, object):
             return miss
 
     def is_ready(self):
-        return not self.shutdown_flag and not self.status.pauseflag and not self.pause_req
+        return not self.shutdown_flag and not self.status.pauseflag
 
 
     def releaseBuffer(self):
@@ -531,7 +538,7 @@ class GlobalProgress(Packer, object):
         try:
             f = self.fs if self.__mode__ == MANUAL else \
                 open(os.path.join(self.handler.file.path, self.handler.file.name), 'rb+')
-        except:
+        except Exception as e:
             threading.Thread(target=self.shutdown).start()
             return
 
@@ -539,20 +546,26 @@ class GlobalProgress(Packer, object):
             while True:
                 if self.isEnd() or not self.is_ready():
                     break
-                self._release_signal.wait(2)
+                self._release_signal.wait(1)
                 self._release_signal.clear()
-                buffqueue = []
-                for i in self.progresses.values():
-                    if i.processor.buff:
-                        buffqueue.append(i.processor)
-                buffqueue = sorted(buffqueue, key=lambda x: x.progress.begin)
-                if buffqueue:
+                self._release(f)
 
-                    for processor in buffqueue:
-                        processor.releaseBuffer(f)
-                    f.flush()
-                gc.collect()
-                self.save()
+            self._release(f)
+
+    def _release(self, f):
+        buffqueue = []
+        for i in self.progresses.values():
+            if i.processor.buff:
+                buffqueue.append(i.processor)
+        buffqueue = sorted(buffqueue, key=lambda x: x.progress.begin)
+        if buffqueue:
+
+            for processor in buffqueue:
+                processor.releaseBuffer(f)
+            f.flush()
+        gc.collect()
+        self.save()
+
 
     def checkBuffer(self, bytelen):
         self.__buff_counter__ += bytelen
@@ -587,8 +600,6 @@ class GlobalProgress(Packer, object):
                     progress = i
                     break
             else:
-            # if not progress:
-            #     print('???????', Range, self.progresses.keys(), self.handler.file.name)
                 for i in cur_progresses:
                     if i.begin == Range[1]:
                         gap = True
@@ -601,7 +612,6 @@ class GlobalProgress(Packer, object):
                     return Range
 
                 if not progress:
-                    # print(Range, self.progresses.keys())
                     return []
 
             return progress.processor.cutRequest(Range)
