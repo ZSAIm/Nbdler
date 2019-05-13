@@ -71,7 +71,7 @@ class Allotter(object):
 
 
     def getUrlsThread(self):
-        url_thread_table = [[] for i in range(len(self.handler.url.id_map))]
+        url_thread_table = [[] for i in range(len(self.handler.url.getAllId()))]
 
         for i in self.globalprog.progresses.values():
             if not i.isGoEnd():
@@ -104,8 +104,8 @@ class Allotter(object):
                     break
                 put_urlid = url_health_table.pop(-1)[0]
 
-                if self.handler.url.dict[put_urlid].max_thread == -1 or \
-                        len(url_thread_table[put_urlid]) < self.handler.url.dict[put_urlid].max_thread:
+                if self.handler.url.getAllUrl()[put_urlid].max_thread == -1 or \
+                        len(url_thread_table[put_urlid]) < self.handler.url.getAllUrl()[put_urlid].max_thread:
                     break
 
         else:
@@ -138,7 +138,7 @@ class Allotter(object):
         for i in self.globalprog.progresses.values():
             if not i.isEnd():
                 urlspeed[i.urlid] = (urlspeed.get(i.urlid, (0, 0))[0] + 1,
-                                     urlspeed.getAll(i.urlid, (0, 0))[1] + i.getAvgSpeed())
+                                     urlspeed.get(i.urlid, (0, 0))[1] + i.getAvgSpeed())
 
         for i, j in urlspeed.items():
             urlspeed[i] = j[1] / j[0]
