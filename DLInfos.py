@@ -77,10 +77,8 @@ class UrlPool(Packer, object):
 
         self.max_retry = max_retry
 
-    # def reloadBadUrl(self):
-    #     for i in self.list:
-    #         if not i.target.headers:
-    #             i.activate()
+
+
 
     def addNode(self, id=-1, url='', cookie='', headers=HEADERS_CHROME,
             host=None, port=None, path=None, protocol=None,
@@ -126,9 +124,9 @@ class UrlPool(Packer, object):
 
         self._mapid[id] = True
         self.parent.file.updateFromUrl(urlobj)
-        # if not self.parent.file.name:
-        #     self.parent.file.name = urlobj.getFileName()
 
+    def getAllId(self):
+        return self._mapid
 
 
     def getNextId(self, cur_id):
