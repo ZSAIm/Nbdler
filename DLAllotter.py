@@ -8,7 +8,7 @@ class Allotter(object):
         self.globalprog = GlobalProgress
         self.handler = Handler
 
-        self.__allotter_lock__ = threading.Lock()
+        # self.__allotter_lock__ = threading.Lock()
 
     def makeBaseConn(self):
         ranges = self.blockToRange(self.makeEvenBlock(len(self.handler.url.getAllUrl())))
@@ -137,8 +137,8 @@ class Allotter(object):
 
         for i in self.globalprog.progresses.values():
             if not i.isEnd():
-                urlspeed[i.urlid] = (urlspeed.get(i.urlid, (0, 0))[0]+1,
-                                     urlspeed.get(i.urlid, (0, 0))[1] + i.getAvgSpeed())
+                urlspeed[i.urlid] = (urlspeed.get(i.urlid, (0, 0))[0] + 1,
+                                     urlspeed.getAll(i.urlid, (0, 0))[1] + i.getAvgSpeed())
 
         for i, j in urlspeed.items():
             urlspeed[i] = j[1] / j[0]
