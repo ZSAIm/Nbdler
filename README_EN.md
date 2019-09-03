@@ -1,16 +1,15 @@
-Nbdler
-===============
+# Nbdler
+
 [![Build Status](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/ZSAIm/Nbdler)
 [![Build Status](https://img.shields.io/badge/pypi-v0.9.9-blue.svg)](https://pypi.org/project/Nbdler/)
 
-[Click here](https://github.com/ZSAIm/Nbdler/blob/master/README_EN.md) for the English version. 
+Nbdler is a HTTP/HTTPS downloader programming by Python.
 
-Nbdler 是使用Python编写的 的HTTP/HTTPS下载器。
+a short example：
 
-一个简短的例子：
-*****
+------
 
-> 在用法上模仿了``urllib``的使用习惯。
+> The usage is similar to ``urllib``'s.
 
 ```python
 >>> import nbdler
@@ -46,71 +45,71 @@ download finished.
 
 ```
 
+# Features
 
-# 特征
+- Resume breakpoint supported.
+- Multi-thread download supported.
+- Multi-url-source download supported.
+- Running in child process mode supported.
+- Download manager pool supported.
 
-* 支持断点续传。
-* 支持多线程分片下载。
-* 支持多来源地址下载。
-* 支持以子进程模式运行。
-* 具有管理任务下载池。
+# Installation
 
+```
+$ pip install Nbdler
+```
 
-# 安装
+# More example
 
-    $ pip install Nbdler
+## About ``handler``。
 
-# 更多例子
+ ``nbdler.Request``：
 
-## 关于``handler``。
+- Using ``child_process=True`` to make download running in child process mode. (``False`` default)
 
-对于``nbdler.Request``：
-
-- 使用参数``child_process=True``使得下载任务运行在子进程模式下（默认为False）。
-
-- 使用参数``filepath``来指定下载文件路径（如果文件名省却则由第一条下载地址决定）。
-- 使用参数``max_thread``来限制最大的分片下载线程数（默认5）。
-- 使用参数``max_retries``来限制下载链接的最大重试打开次数。（默认None，即无限制）
-- 使用参数``block_size``来指定对分片的最小切割单元字节大小。（默认512*1024）
+- Using ``filepath`` to specify the filepath file saved. (filename would be determined by the first download url if missing)
+- Using ``max_thread`` to limit the max number of download thread. (``5`` default)
+- Using ``max_retries`` to limit the max number of retries to open url. (``None`` default, meaning no limit)
+- Using ``block_size`` to specify the unit byte size of the slice. (``512*1024`` default)
 
 ```python
 >>> req = nbdler.Request(filepath='c:/nbdler_saved_path/centos-7-aarch64.iso', max_retries=3, max_thread=32)
 ```
 
-为了实现多来源地址下载，你可以使用方法``put()``，来进行添加更多的地址来源。
+Using ``req.put()``to put more download source.
 
 ```python
 >>> req.put(url='http://mirrors.huaweicloud.com/centos-altarch/7.6.1810/isos/aarch64/CentOS-7-aarch64-NetInstall-1810.iso')
 >>> req.put(url='http://mirror.xtom.com.hk/centos-altarch/7.6.1810/isos/aarch64/CentOS-7-aarch64-Minimal-1810.iso')
 ```
 
-如果你希望下载运行在子进程模式下，可以使用参数``child_process=True``（``dlopen``下的参数优先于``Request``）。
+Using ``child_process=True``  to make download running in child process mode.(the priority level of ``dlopen``'s argument is higher than ``Request``'s)
 
 ```python
 >>> dl = nbdler.dlopen(req, child_process=True)
 >>> dl.start()
 ```
 
-如果你希望暂停下载，可以使用``dl.pause()``或者``dl.stop()``，之后可以使用``dl.start()``继续下载。
+Using ``dl.pause()`` or ``dl.stop()`` to stop downloading, and using ``dl.start()`` to resume downloading.
 
 ```python
 >>> dl.pause()
 >>> dl.start()
 ```
 
-## 关于``manager``。
+## About ``manager``。
 
-如果你需要用到下载池，可以使用``nbdler.manager``：
+``nbdler.manager`` ：
 
-- 使用参数``max_task``设置同时最大下载任务。
+- Using ``max_task`` to set the max number of the download tasks.
 
-- 使用参数``child_process=True``使得下载池工作在子进程模式下（默认False）。
+- Using ``child_process=True`` to make download running in child process mode. (``False`` default)
 
 ```python
 >>> mgr = nbdler.manager(2)
 ```
 
-之后你可以使用``putrequest``往下载池里面进行添加下载请求，添加完成后将返回任务``id号``。
+Using ``putrequest()`` to put more download download request and returning ``task id`` after then.
 
 ```python
 >>> mgr.putrequest(req)
@@ -121,23 +120,25 @@ download finished.
 2
 ```
 
-使用``mgr.start_queue()``就能运行下载池。
+Using ``mgr.start_queue()`` to run the download pool.
 
 ```python
 >>> mgr.start_queue()
 ```
 
+# License
 
-# 许可证
 Apache-2.0
 
-# 更新日志
+# Changelog
 
 ### 0.9.9
-- 新的重构。
-- 添加多进程下载支持。
+
+- rebuild。
+- multiprocess was supported.
 
 ### 0.0.1
-- 上传代码。
+
+- Uploaded code。
 
  
