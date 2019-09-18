@@ -307,9 +307,7 @@ class Handler:
          when task is finished or stopped, there is a signal
          sent to callback_handle (should be a type of CallbackHandle).
          """
-        self._console.install_external_callback_queue(callback_handle)
-
-    def install_
+        self._console.install_external_callback_queue(callback_handle)  
 
     def is_opened(self):
         return self._console is not None

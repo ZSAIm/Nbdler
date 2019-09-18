@@ -1,8 +1,6 @@
 Nbdler
 ======
 
-| |Build Status|
-| |Build Status|
 
 Nbdler is a HTTP/HTTPS downloader programming by Python.
 
@@ -149,7 +147,7 @@ Apache-2.0
 Changelog
 =========
 
-1.0.0
+1.0.1
 ~~~~~
 
 -  fixed some bugs.
@@ -165,7 +163,3 @@ Changelog
 
 -  Uploaded code。
 
-.. |Build Status| image:: https://img.shields.io/badge/build-passing-green.svg
-   :target: https://github.com/ZSAIm/Nbdler
-.. |Build Status| image:: https://img.shields.io/badge/pypi-v1.0.0-blue.svg
-   :target: https://pypi.org/project/Nbdler/
