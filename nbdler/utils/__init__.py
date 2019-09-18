@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Name:        nbdler/misc/__init__.py
+# Name:        nbdler/utils/__init__.py
 # Author:      ZSAIm
 #
 # Created:     01-Sept-2019

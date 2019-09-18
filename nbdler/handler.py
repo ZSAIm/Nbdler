@@ -11,8 +11,8 @@ from nbdler.exception import URLPoolEmpty, URLConnectFailed, \
 from nbdler.request import Request
 from nbdler.url.pool import Url
 from nbdler.saver import Saver
-from nbdler.misc.process_interface import make_method, make_class
-from nbdler.misc.signal import ID_TASK_STOP, ID_TASK_EXCEPTION
+from nbdler.utils.process_interface import make_method, make_class
+from nbdler.struct.signal import ID_TASK_STOP, ID_TASK_EXCEPTION
 
 from six.moves.queue import Queue
 import os
@@ -93,7 +93,7 @@ class Handler:
         self.__idle = False
         dumped_data = Saver.json_loads(source)
         console = self._load_console(dumped_data)
-
+        self._console = console
         self._saver = Saver(os.path.join(console.file.getpath(), console.file.getname() + '.nb'),
                             self.save_handler)
         self._console.install_saver(self._saver)
@@ -146,8 +146,10 @@ class Handler:
                                 init_res.response.getheaders(),
                                 init_res.response.getcode(),
                                 init_res.filesize)
+        if dlrequest.max_thread:
+            self._max_thread = dlrequest.max_thread
         console = console_handler(file, self.url, self._buffsize,
-                                  blocksize, dlrequest.max_thread or self._max_thread, self._inner_exc_signal)
+                                  blocksize, self._max_thread, self._inner_exc_signal)
         console.insert(init_res.client, lprog)
         return console
 
@@ -166,12 +168,9 @@ class Handler:
             self.__idle = True
         else:
             self._open_file(dlrequest.filepath + '.nb')
-            # dumped_data = Saver.json_loads(dlrequest)
-            # console = self._load_console(dumped_data)
             for i in dlrequest:
                 self.url.put(i.url, i.headers, i.cookie, proxy=i.proxy, max_conn=i.max_thread,
                              rangef=i.rangef, name=i.name)
-
 
     def getavgspeed(self):
         """ Return download average speed. """
@@ -185,17 +184,17 @@ class Handler:
         """
         return self._console.getinstspeed()
 
-    def getincbyte(self):
+    def get_go_inc(self):
         """ Return the size of download bytes already. """
-        return self._console.getincbyte()
+        return self._console.get_go_inc()
 
-    def get_remain_time(self):
+    def get_time_left(self):
         """ Return the time remaining to finish the task. (base on average speed)"""
-        return self._console.get_remain_time()
+        return self._console.get_time_left()
 
-    def get_remain_byte(self):
+    def get_byte_left(self):
         """ Return the remaining size of downloading file. """
-        return self._console.get_remain_byte()
+        return self._console.get_byte_left()
 
     def save_handler(self):
         """ Save Download Handler Data to the file name with a suffix of '.nb'. """
@@ -205,7 +204,7 @@ class Handler:
         """ Return a raw Download Handler data to serialize. """
         return HandlerDumpedData(url=tuple(self.url.dump_data()), file=tuple(self._console.file.dump_data()),
                                  console=tuple(self._console.dump_data()), maxthread=self._max_thread,
-                                 buffsize=self._buffsize, blocksize=self._console.getblocksize())
+                                 buffsize=self._buffsize, blocksize=self._console.get_block_size())
 
     def _load_console(self, dumped_data):
         """ Load Download Handler from a json serializing Handler data. """
@@ -233,7 +232,10 @@ class Handler:
         return FileInfo(name=self._console.file.getname(),
                         path=self._console.file.getpath(),
                         size=self._console.file.getsize(),
-                        block_size=self._console.getblocksize())
+                        block_size=self._console.get_block_size())
+
+    def get_online_cnt(self):
+        return self._console.get_online_cnt()
 
     def start(self):
         """ Start the download task. """
@@ -264,9 +266,9 @@ class Handler:
 
     stop = pause
 
-    def is_finish(self):
+    def is_finished(self):
         """ Return True if download task is finished. """
-        return self._console.is_finish()
+        return self._console.is_finished()
 
     def is_running(self):
         """ Return True if download task is started. """
@@ -274,11 +276,11 @@ class Handler:
 
     def get_online_counter(self):
         """ Return the number of running client threads. """
-        return self._console.get_online_counter()
+        return self._console.get_online_cnt()
 
     def close(self):
         """ Remove the finished download task's datafile. """
-        if self.is_finish():
+        if self.is_finished():
             datafile = os.path.join(self._console.file.getpath(), self._console.file.getname() + '.nb')
             if os.path.exists(datafile):
                 os.unlink(datafile)
@@ -306,6 +308,8 @@ class Handler:
          sent to callback_handle (should be a type of CallbackHandle).
          """
         self._console.install_external_callback_queue(callback_handle)
+
+    def install_
 
     def is_opened(self):
         return self._console is not None
@@ -365,7 +369,7 @@ class HandlerForChildProcess:
         pass
 
     @make_method
-    def is_finish(self):
+    def is_finished(self):
         pass
 
     @make_method
@@ -381,15 +385,15 @@ class HandlerForChildProcess:
         pass
 
     @make_method
-    def getincbyte(self):
+    def get_go_inc(self):
         pass
 
     @make_method
-    def get_remain_time(self):
+    def get_time_left(self):
         pass
 
     @make_method
-    def get_remain_byte(self):
+    def get_byte_left(self):
         pass
 
     @make_method
@@ -407,6 +411,10 @@ class HandlerForChildProcess:
 
     @make_method
     def geturlinfo_all(self):
+        pass
+
+    @make_method
+    def get_online_cnt(self):
         pass
 
     # @make_method

@@ -1,7 +1,7 @@
 # Nbdler
 
 [![Build Status](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/ZSAIm/Nbdler)
-[![Build Status](https://img.shields.io/badge/pypi-v0.9.9-blue.svg)](https://pypi.org/project/Nbdler/)
+[![Build Status](https://img.shields.io/badge/pypi-v1.0.0-blue.svg)](https://pypi.org/project/Nbdler/)
 
 Nbdler is a HTTP/HTTPS downloader programming by Python.
 
@@ -21,7 +21,7 @@ a short example：
 FileInfo(name='WeChatSetup.exe', path='', size=44758872, block_size=524288)
 >>> dl.start()
 >>> while not dl.is_finish():
-... 	print("instspeed: %f KB/S, remain_time: %f s, %d/%d" % (dl.getinstspeed()/1024, dl.get_remain_time(), dl.getincbyte(), fileinfo.size))
+... 	print("instspeed: %f KB/S, remain_time: %f s, %d/%d" % (dl.getinstspeed()/1024, dl.get_time_left(), dl.get_go_inc(), fileinfo.size))
 ... 	time.sleep(1)
 ... else:
 ... 	print('download finished.')
@@ -131,6 +131,11 @@ Using ``mgr.start_queue()`` to run the download pool.
 Apache-2.0
 
 # Changelog
+
+### 1.0.0
+
+- fixed some bugs.
+
 
 ### 0.9.9
 

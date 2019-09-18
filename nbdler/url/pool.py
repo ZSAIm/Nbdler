@@ -25,9 +25,13 @@ class SourceWrapper:
     def __contains__(self, item):
         return self.source.id == item.id
 
+    def use_anyway(self):
+        self.used += 1
+
     def use(self):
         self.used += 1
         if self._max_used is not None and self._max_used < self.used:
+            self.used -= 1
             raise MaxUsedExceedError()
 
     def disuse(self):
@@ -129,8 +133,17 @@ class Url:
         for i in min_max_used:
             if i.is_available():
                 return i
+        return None
 
-        raise ValueError('cannot find another available url source.')
+    def get_min_used(self):
+        min_max_used = sorted(self._sources, key=lambda i: i.used)
+        return min_max_used[0]
+
+    def get_next(self, srcid):
+        try:
+            return self._sources[srcid + 1]
+        except IndexError:
+            return self._sources[0]
 
     def open_request(self, dlrequest):
         for v in dlrequest:
@@ -166,7 +179,8 @@ class Url:
         for source_data in data.sources:
             srcdata = SourceUrlDumpedData(*source_data)
             source = self.put(srcdata.url, srcdata.headers, srcdata.cookie,
-                              proxy=srcdata.proxy, max_conn=srcdata.max_thread,
+                              proxy=srcdata.proxy, max_conn=srcdata.max_conn,
                               rangef=srcdata.rangef, name=srcdata.name)
-            source.load(srcdata.response)
+            if srcdata.response:
+                source.load(srcdata.response)
 

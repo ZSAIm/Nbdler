@@ -1,7 +1,7 @@
 Nbdler
 ===============
 [![Build Status](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/ZSAIm/Nbdler)
-[![Build Status](https://img.shields.io/badge/pypi-v0.9.9-blue.svg)](https://pypi.org/project/Nbdler/)
+[![Build Status](https://img.shields.io/badge/pypi-v1.0.0-blue.svg)](https://pypi.org/project/Nbdler/)
 
 [Click here](https://github.com/ZSAIm/Nbdler/blob/master/README_EN.md) for the English version. 
 
@@ -132,6 +132,9 @@ download finished.
 Apache-2.0
 
 # 更新日志
+
+### 1.0.0
+- 修复一些bug。
 
 ### 0.9.9
 - 新的重构。

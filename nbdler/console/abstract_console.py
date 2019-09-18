@@ -23,7 +23,7 @@ class AbstractConsole:
         """ Insert a block described by Client and Progress into the console. """
 
     @abstractmethod
-    def getincbyte(self):
+    def get_go_inc(self):
         """ Return byte size downloaded. """
 
     @abstractmethod
@@ -35,15 +35,15 @@ class AbstractConsole:
         """ Return average download speed. """
 
     @abstractmethod
-    def get_remain_byte(self):
+    def get_byte_left(self):
         """ Return remaining byte to finish the download task. """
 
     @abstractmethod
-    def get_remain_time(self):
+    def get_time_left(self):
         """ Return remaining time to finish the download task. """
 
     @abstractmethod
-    def is_finish(self):
+    def is_finished(self):
         """ Return True if download task finished. """
 
     @abstractmethod
@@ -55,6 +55,9 @@ class AbstractConsole:
         """ A thread handler about callback signal. """
 
     @abstractmethod
-    def getblocksize(self):
+    def get_block_size(self):
         """ Return console's unit block size. """
 
+    @abstractmethod
+    def getBuffCnter(self):
+        """ Return current buffer counter. """

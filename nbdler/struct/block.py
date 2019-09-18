@@ -1,7 +1,7 @@
 
 from math import ceil
 from collections import namedtuple
-from nbdler.misc.thread import RLock
+from nbdler.utils.thread import RLock
 from nbdler.struct.dump import BlockDumpedData
 
 try:
@@ -122,19 +122,19 @@ class Block:
 
     clear = property(lambda self: self._prog.clear, lambda self, v: None, None, '')
 
-    is_finish_go = lambda self: self._prog.go_finishflag
+    is_go_finished = lambda self: self._prog.go_finishflag
 
-    is_finish = lambda self: self._prog.finishflag
+    is_finished = lambda self: self._prog.finishflag
 
-    get_remain_byte = lambda self: self._prog.go_remain
+    get_byte_left = lambda self: self._prog.go_remain
 
-    getincbyte = lambda self: self._prog.go_inc
+    get_go_inc = lambda self: self._prog.go_inc
 
     def __repr__(self):
         self.calibration()
-        return "[%d-%d](%d-%d) - %s/%s" % (self.begin, self.end,
-                                           self._prog.begin, self._prog.end, self.is_finish_go(),
-                                           self.is_finish())
+        return "<%d>[%d-%d](%d-%d) - %s/%s" % (self.getsource().id, self.begin, self.end,
+                                               self._prog.begin, self._prog.end, self.is_go_finished(),
+                                               self.is_finished())
 
     def dump_data(self):
         return BlockDumpedData(rel_grid=tuple([tuple(i) for i in self.grid]), url_id=self.getsource().id,

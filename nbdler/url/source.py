@@ -53,7 +53,7 @@ class SourceUrl(BasicUrl):
         return self
 
     def response(self, url, headers, code, length):
-        self._response = UrlResponse(url=url, headers=headers, code=code, length=length)
+        self._response = UrlResponse(url=url, headers=dict(headers), code=code, length=length)
 
     def reset(self):
         self.url = self.__origin_url
@@ -63,7 +63,7 @@ class SourceUrl(BasicUrl):
         return SourceUrlDumpedData(url=self.__origin_url, headers=dict(self.headers),
                                    cookie=self.cookie, proxy=self.proxy, max_conn=self.max_conn,
                                    rangef=dict(self._rangef), name=self.name,
-                                   response=tuple(self._response.dump_data()))
+                                   response=self._response and tuple(self._response.dump_data()))
 
     def load(self, dumped_data):
         data = UrlResponse(*dumped_data)

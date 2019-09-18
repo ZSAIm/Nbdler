@@ -3,7 +3,7 @@
 import gc
 from time import sleep
 
-from nbdler.misc.thread import ThreadCollector, Lock
+from nbdler.utils.thread import ThreadCollector, Lock
 from nbdler.struct.block import Block
 from six.moves.queue import Queue
 from nbdler.struct.dump import BlockDumpedData, ConsoleDumpedData
@@ -11,7 +11,7 @@ from nbdler.struct.time_speed import AccumulatedTime, InstSpeedMaker
 from nbdler.struct.progress import Progress
 from nbdler.client import build_client
 from nbdler.console.abstract_console import AbstractConsole
-from nbdler.misc.signal import Signal, SIGNAL_TASK_STOP, ID_TASK_BUFF, SIGNAL_CALLBACK_END, \
+from nbdler.struct.signal import Signal, SIGNAL_TASK_STOP, ID_TASK_BUFF, SIGNAL_CALLBACK_END, \
     ID_TASK_STOP, SIGNAL_TASK_FINISH, ID_THREAD_END, ID_TASK_FINISH, ID_TASK_PAUSE, SIGNAL_TASK_PAUSE, \
     ID_GAIERROR, ID_CRASH, ID_TIMEOUT, ID_UNKNOWN, ID_URL_STATUS, ID_NORMAL, SIGNAL_EXCEPTION
 
@@ -62,7 +62,7 @@ class SingleClientConsole(AbstractConsole):
         self.runflag = True
         self._block.clear()
         self._acum_time.start()
-        self._inst_maker.start(self.getincbyte())
+        self._inst_maker.start(self.get_go_inc())
         self._tpm.put(self._block.handler, GROUP_CLIENT,
                       args=(self._client_callback_queue,), owner=self._block).start()
         self._tpm.put(self._client_callback_handle_thread, GROUP_CONTROLLER).start()
@@ -87,32 +87,32 @@ class SingleClientConsole(AbstractConsole):
             self._tpm.wait(GROUP_CONTROLLER, timeout=timeout)
 
     def is_finish_go(self):
-        return self._block.is_finish_go()
+        return self._block.is_go_finished()
 
-    def get_remain_byte(self):
+    def get_byte_left(self):
         if self.is_finish_go():
             return 0
         else:
             return float('inf')
 
-    def get_remain_time(self):
+    def get_time_left(self):
         if self.is_finish_go():
             return 0
         else:
             return float('inf')
 
     def getavgspeed(self):
-        return self.getincbyte() / (self._acum_time.getinctime() or float('inf'))
+        return self.get_go_inc() / (self._acum_time.getinctime() or float('inf'))
 
-    def getincbyte(self):
-        return self._block.getincbyte()
+    def get_go_inc(self):
+        return self._block.get_go_inc()
 
     def getinstspeed(self):
         return self._inst_maker.getspeed()
 
     def _inst_speed_capture_thread(self):
         while self.runflag:
-            self._inst_maker.capture(self.getincbyte())
+            self._inst_maker.capture(self.get_go_inc())
             freq = INST_SPEED_REFRESH_FREQUENCY
             if freq > 0:
                 sleep(1 / freq)
@@ -139,8 +139,8 @@ class SingleClientConsole(AbstractConsole):
 
         self._client_callback_queue.task_done()
 
-    def is_finish(self):
-        return self._block.is_finish()
+    def is_finished(self):
+        return self._block.is_finished()
 
     def _finish_task(self):
         self._client_callback_queue.put_nowait(SIGNAL_TASK_FINISH())
@@ -217,7 +217,7 @@ class SingleClientConsole(AbstractConsole):
                 <CLIENT THREAD END OF LIFE>
         """
         if self.runflag:
-            if self._block.is_finish_go():
+            if self._block.is_go_finished():
                 srcwrapper = self._url.getwrapper(self._block.getsource())
                 srcwrapper.disuse()
             else:
@@ -249,7 +249,7 @@ class SingleClientConsole(AbstractConsole):
             srcwrapper.use()
             self.insert(client, prog)
 
-    def getblocksize(self):
+    def get_block_size(self):
         return self._block_size
 
     def join(self, timeout=None):
@@ -257,3 +257,7 @@ class SingleClientConsole(AbstractConsole):
 
     def install_external_callback_queue(self, handle):
         self.__callback_queue = handle
+
+    def getBuffCnter(self):
+        return self.__buff_counter
+

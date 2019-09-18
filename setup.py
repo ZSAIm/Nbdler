@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 import io
 
-version = '0.9.9'
+version = '1.0.0'
 author = 'ZSAIm'
 author_email = 'zzsaim@163.com'
 
@@ -34,5 +34,5 @@ setup(
             'Programming Language :: Python :: 3.7',
         ],
     packages=find_packages(),
-
+    install_requires=['six', ]
 )

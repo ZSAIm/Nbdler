@@ -6,11 +6,11 @@ from time import sleep
 
 from six.moves.queue import Queue
 from nbdler.struct.block import Block, GridCell
-from nbdler.misc.thread import ThreadCollector, Lock
+from nbdler.utils.thread import ThreadCollector, Lock
 from nbdler.struct.progress import Progress
 from nbdler.client import build_client
 from nbdler.console.abstract_console import AbstractConsole
-from nbdler.misc.signal import SIGNAL_TASK_STOP, SIGNAL_TASK_SLICE, ID_TASK_BUFF, \
+from nbdler.struct.signal import SIGNAL_TASK_STOP, SIGNAL_TASK_SLICE, ID_TASK_BUFF, \
     ID_TASK_SLICE, ID_TASK_STOP, SIGNAL_TASK_FINISH, ID_THREAD_END, ID_TASK_FINISH, ID_TASK_PAUSE, SIGNAL_TASK_PAUSE, \
     ID_GAIERROR, ID_CRASH, ID_TIMEOUT, ID_UNKNOWN, ID_URL_STATUS, ID_NORMAL, SIGNAL_EXCEPTION, \
     SIGNAL_SWITCH, SIGNAL_WAIT, Signal, ID_CALLBACK_END, SIGNAL_CALLBACK_END
@@ -110,7 +110,7 @@ class MultiClientConsole(AbstractConsole):
             raise RuntimeError('cannot find any download block in the console.')
         self.runflag = True
         self._acum_time.start()
-        self._inst_maker.start(self.getincbyte())
+        self._inst_maker.start(self.get_go_inc())
         for block in self._blocks:
             block.clear_signal()
             self._tpm.put(block.handler, GROUP_CLIENT, args=(self._client_callback_queue,),
@@ -120,18 +120,18 @@ class MultiClientConsole(AbstractConsole):
         self._tpm.put(self._client_callback_handle_thread, GROUP_CONTROLLER).start()
         self._tpm.put(self._inst_speed_capture_thread, GROUP_INSTSPEED).start()
 
-        if self._mxthread > self.get_running_counter():
+        if self._mxthread > self.get_client_cnt():
             self._make_slice_request()
 
-    def getblocksize(self):
+    def get_block_size(self):
         """ Return console's unit block size. """
         return self._block_size
 
-    def getincbyte(self):
+    def get_go_inc(self):
         """ Return byte size downloaded. """
         inc = 0
         for v in self._blocks:
-            inc += v.getincbyte()
+            inc += v.get_go_inc()
         return inc
 
     def pause(self, block=True, timeout=None):
@@ -139,13 +139,12 @@ class MultiClientConsole(AbstractConsole):
         self.runflag = False
         self._client_callback_queue.put_nowait(SIGNAL_TASK_PAUSE())
         if block:
-            self._tpm.wait(GROUP_CONTROLLER, timeout=timeout)
-
+            self._tpm.join(timeout=timeout)
     stop = pause
 
     def getavgspeed(self):
         """ Return average download speed. """
-        return self.getincbyte() / (self._acum_time.getinctime() or float('inf'))
+        return self.get_go_inc() / (self._acum_time.getinctime() or float('inf'))
 
     def getinstspeed(self):
         """ Return instant download speed. """
@@ -153,49 +152,45 @@ class MultiClientConsole(AbstractConsole):
 
     def _inst_speed_capture_thread(self):
         while self.runflag:
-            self._inst_maker.capture(self.getincbyte())
+            self._inst_maker.capture(self.get_go_inc())
             freq = INST_SPEED_REFRESH_FREQUENCY
             if freq > 0:
                 sleep(1 / freq)
             else:
                 break
 
-    def get_remain_time(self):
+    def get_time_left(self):
         """ Return remaining time to finish the download task. """
         speed = self.getavgspeed()
-        return self.get_remain_byte() / speed if speed else float('inf')
+        return self.get_byte_left() / speed if speed else float('inf')
 
-    def get_remain_byte(self):
+    def get_byte_left(self):
         """ Return remaining byte to finish the download task. """
-        acum_byte = 0
-        for v in self._blocks:
-            acum_byte += v.get_remain_byte()
+        return self.file.getsize() - self.get_go_inc()
 
-        return acum_byte
-
-    def get_online_counter(self):
+    def get_online_cnt(self):
         """ Return the number of running client-threads. """
         return len(self._tpm.get_group(GROUP_CLIENT))
 
-    def get_running_counter(self):
+    def get_client_cnt(self):
         """ Return the number of running clients. """
         acum = 0
         for v in self._blocks:
-            if not v.is_finish_go():
+            if not v.is_go_finished():
                 acum += 1
         return acum
 
-    def is_finish_go(self):
+    def is_go_finished(self):
         """ Return True if download finished (finish writing to file is not necessary). """
         for v in self._blocks:
-            if not v.is_finish_go():
+            if not v.is_go_finished():
                 return False
         return self._check_complete()
 
-    def is_finish(self):
+    def is_finished(self):
         """ Return True if download task finished. """
         for v in self._blocks:
-            if not v.is_finish():
+            if not v.is_finished():
                 return False
         return self._check_complete()
 
@@ -262,18 +257,18 @@ class MultiClientConsole(AbstractConsole):
                 <CLIENT THREAD END OF LIFE>
         """
         block = self._find_block_from_client(client)
+        srcwrapper = self._url.getwrapper(block.getsource())
         if self.runflag:
-            if block.is_finish_go():
-                if self._mxthread > self.get_running_counter():
+            if block.is_go_finished():
+                if self._mxthread > self.get_client_cnt():
                     self._make_slice_request()
-                srcwrapper = self._url.getwrapper(block.getsource())
                 srcwrapper.disuse()
 
             else:
                 self._tpm.put(client.run, GROUP_CLIENT, args=(self._client_callback_queue,),
                               owner=block).start()
 
-        if self.is_finish_go():
+        if self.is_go_finished():
             self._buffer_release_thread()
             self._finish_task()
 
@@ -299,6 +294,7 @@ class MultiClientConsole(AbstractConsole):
             )
 
     def __stop_handler(self):
+        self._buffer_release_thread()
         self.file.close()
         self._acum_time.stop()
         self._inst_maker.stop()
@@ -319,6 +315,9 @@ class MultiClientConsole(AbstractConsole):
         """
         if slice.range:
             srcwrapper = self._url.get_min_avl_used()
+            if not srcwrapper:
+                srcwrapper = self._url.get_min_used()
+
             prog = Progress(slice.range)
             client = slice.client(srcwrapper.get(), prog)
             block = self.insert(client, prog)
@@ -328,7 +327,7 @@ class MultiClientConsole(AbstractConsole):
                               args=(self._client_callback_queue,),
                               owner=block).start()
 
-        if self._mxthread > self.get_running_counter():
+        if self._mxthread > self.get_client_cnt():
             self._make_slice_request()
 
     def __buffer_signal_handler(self, byte):
@@ -362,16 +361,20 @@ class MultiClientConsole(AbstractConsole):
             elif url_status.id == ID_GAIERROR:
                 srcwrapper.network_down()
         except (URLCrash, URLTimeout, URLUnknownError, NetworkDisconnected) as e:
-            try:
-                nextwrapper = self._url.get_min_avl_used()
-            except ValueError:
+
+            srcwrapper.disuse()
+            nextwrapper = self._url.get_min_avl_used()
+            if not nextwrapper:
+                nextwrapper = self._url.get_next(srcwrapper.source.id)
+
                 if self._url.is_all_crashed():
                     self._failed_task(e)
                 else:
                     block.send_signal(SIGNAL_WAIT(1))
-            else:
-                block.send_signal(SIGNAL_SWITCH(nextwrapper.get()))
-                nextwrapper.use()
+
+            nextwrapper.use_anyway()
+
+            block.send_signal(SIGNAL_SWITCH(nextwrapper.get()))
 
     def __pause_handler(self):
         """ Callback handler when signal.id == ID_PAUSE:
@@ -384,7 +387,6 @@ class MultiClientConsole(AbstractConsole):
         self._tpm.wait(GROUP_CLIENT)
         self._tpm.wait(GROUP_RELEASE)
 
-        self._buffer_release_thread()
         self._client_callback_queue.put_nowait(SIGNAL_TASK_STOP())
 
         if self._external_callback_queue:
@@ -421,4 +423,7 @@ class MultiClientConsole(AbstractConsole):
 
     def join(self, timeout=None):
         self._tpm.join(timeout)
+
+    def getBuffCnter(self):
+        return self.__buff_counter
 

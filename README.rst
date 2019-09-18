@@ -1,12 +1,14 @@
 Nbdler
 ======
 
-|Build Status| |Build Status|
+| |Build Status|
+| |Build Status|
 
 Nbdler is a HTTP/HTTPS downloader programming by Python.
 
 a short example：
 
+--------------
 
     The usage is similar to ``urllib``'s.
 
@@ -21,7 +23,7 @@ a short example：
     FileInfo(name='WeChatSetup.exe', path='', size=44758872, block_size=524288)
     >>> dl.start()
     >>> while not dl.is_finish():
-    ...     print("instspeed: %f KB/S, remain_time: %f s, %d/%d" % (dl.getinstspeed()/1024, dl.get_remain_time(), dl.getincbyte(), fileinfo.size))
+    ...     print("instspeed: %f KB/S, remain_time: %f s, %d/%d" % (dl.getinstspeed()/1024, dl.get_time_left(), dl.get_go_inc(), fileinfo.size))
     ...     time.sleep(1)
     ... else:
     ...     print('download finished.')
@@ -46,11 +48,11 @@ a short example：
 Features
 ========
 
-*  Resume breakpoint supported.
-*  Multi-thread download supported.
-*  Multi-url-source download supported.
-*  Running in child process mode supported.
-*  Download manager pool supported.
+-  Resume breakpoint supported.
+-  Multi-thread download supported.
+-  Multi-url-source download supported.
+-  Running in child process mode supported.
+-  Download manager pool supported.
 
 Installation
 ============
@@ -67,16 +69,16 @@ About ``handler``\ 。
 
 ``nbdler.Request``\ ：
 
-*  Using ``child_process=True`` to make download running in child
+-  Using ``child_process=True`` to make download running in child
    process mode. (``False`` default)
 
-*  Using ``filepath`` to specify the filepath file saved. (filename
+-  Using ``filepath`` to specify the filepath file saved. (filename
    would be determined by the first download url if missing)
-*  Using ``max_thread`` to limit the max number of download thread.
+-  Using ``max_thread`` to limit the max number of download thread.
    (``5`` default)
-*  Using ``max_retries`` to limit the max number of retries to open url.
+-  Using ``max_retries`` to limit the max number of retries to open url.
    (``None`` default, meaning no limit)
-*  Using ``block_size`` to specify the unit byte size of the slice.
+-  Using ``block_size`` to specify the unit byte size of the slice.
    (``512*1024`` default)
 
 .. code:: python
@@ -112,9 +114,9 @@ About ``manager``\ 。
 
 ``nbdler.manager`` ：
 
-*  Using ``max_task`` to set the max number of the download tasks.
+-  Using ``max_task`` to set the max number of the download tasks.
 
-*  Using ``child_process=True`` to make download running in child
+-  Using ``child_process=True`` to make download running in child
    process mode. (``False`` default)
 
 .. code:: python
@@ -144,3 +146,26 @@ License
 
 Apache-2.0
 
+Changelog
+=========
+
+1.0.0
+~~~~~
+
+-  fixed some bugs.
+
+0.9.9
+~~~~~
+
+-  rebuild。
+-  multiprocess was supported.
+
+0.0.1
+~~~~~
+
+-  Uploaded code。
+
+.. |Build Status| image:: https://img.shields.io/badge/build-passing-green.svg
+   :target: https://github.com/ZSAIm/Nbdler
+.. |Build Status| image:: https://img.shields.io/badge/pypi-v1.0.0-blue.svg
+   :target: https://pypi.org/project/Nbdler/

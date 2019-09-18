@@ -15,7 +15,7 @@ class Saver:
             fp.flush()
 
     def dump(self):
-        self.json_dumps(self._save_handle())
+        self._save_handle()
 
     @staticmethod
     def json_loads(file):

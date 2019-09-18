@@ -3,7 +3,7 @@ from multiprocessing import Pipe, Process, current_process
 from six.moves.queue import Queue
 from threading import current_thread
 from collections import namedtuple
-from nbdler.misc.thread import ThreadCollector
+from nbdler.utils.thread import ThreadCollector
 from traceback import format_exc
 
 

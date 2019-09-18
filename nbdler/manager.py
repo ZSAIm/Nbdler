@@ -1,12 +1,12 @@
 
 from six.moves.queue import Queue as ThreadQueue
 from multiprocessing import Manager as ProcessManager
-from nbdler.misc.signal import ID_TASK_FINISH, ID_TASK_STOP, ID_TASK_EXCEPTION, ID_TASK_PAUSE, \
+from nbdler.struct.signal import ID_TASK_FINISH, ID_TASK_STOP, ID_TASK_EXCEPTION, ID_TASK_PAUSE, \
     SIGNAL_TASK_PAUSE, Signal, ID_TASK_OPEN, SIGNAL_TASK_OPEN, SIGNAL_TASK_START, ID_TASK_START, \
     SIGNAL_TASK_FAIL, ID_TASK_FAIL, SIGNAL_CALLBACK_END, ID_CALLBACK_END
 from nbdler.struct.misc import SignalQueue, ProcessInfo
-from nbdler.misc.process_interface import make_class, make_method
-from nbdler.misc.thread import ThreadCollector, Lock
+from nbdler.utils.process_interface import make_class, make_method
+from nbdler.utils.thread import ThreadCollector, Lock
 from nbdler.struct.task import TaskWrapper, TaskQueue
 from nbdler.handler import dlopen
 from nbdler.exception import HandlerError, URLError, ClientError, \
@@ -34,6 +34,10 @@ class RequestWrapper(TaskWrapper):
 
 
 class HandlerWrapper(TaskWrapper):
+    __slots__ = ()
+
+
+class ManagerWrapper(TaskWrapper):
     __slots__ = ()
 
 
@@ -193,33 +197,33 @@ class Manager:
         if task_id is not None:
             if not self._opened_info_checking(task_id):
                 return 0
-            return self._full_queue[task_id].source.getincbyte()
+            return self._full_queue[task_id].source.get_go_inc()
         else:
             incbyte = 0
             for i in self._queue.running:
-                incbyte += self._full_queue[i].source.getincbyte()
+                incbyte += self._full_queue[i].source.get_go_inc()
             return incbyte
 
     def get_remain_time(self, task_id=None):
         if task_id is not None:
             if not self._opened_info_checking(task_id):
                 return float('inf')
-            return self._full_queue[task_id].source.get_remain_time()
+            return self._full_queue[task_id].source.get_time_left()
         else:
             remain = 0
             for i in self._queue.running:
-                remain += self._full_queue[i].source.get_remain_time()
+                remain += self._full_queue[i].source.get_time_left()
             return remain
 
     def get_remain_byte(self, task_id=None):
         if task_id is not None:
             if not self._opened_info_checking(task_id):
                 return float('inf')
-            return self._full_queue[task_id].source.get_remain_byte()
+            return self._full_queue[task_id].source.get_byte_left()
         else:
             remain = 0
             for i in self._queue.running:
-                remain += self._full_queue[i].source.get_remain_byte()
+                remain += self._full_queue[i].source.get_byte_left()
             return remain
 
     def getfileinfo(self, task_id):
@@ -358,7 +362,7 @@ class Manager:
 
     def is_finish(self, task_id):
         self._border_check(task_id)
-        return self._full_queue[task_id].source.is_finish()
+        return self._full_queue[task_id].source.is_finished()
 
     def close(self):
         if not self.is_idle():

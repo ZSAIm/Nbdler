@@ -4,7 +4,7 @@ from six.moves.http_client import HTTPSConnection as HTTPSConnection_origin, HTT
 from nbdler.client.abstract_client import AbstractClient
 from six.moves.urllib.error import URLError, HTTPError
 from nbdler.exception import URLUnknownError, HTTP4XXError, URLConnectFailed
-from nbdler.misc.signal import SIGNAL_TASK_BUFF, SIGNAL_TASK_SLICE, ID_TASK_SLICE, SIGNAL_THREAD_END, ID_TASK_PAUSE, \
+from nbdler.struct.signal import SIGNAL_TASK_BUFF, SIGNAL_TASK_SLICE, ID_TASK_SLICE, SIGNAL_THREAD_END, ID_TASK_PAUSE, \
     SIGNAL_GAIERROR, SIGNAL_CRASH, SIGNAL_TIMEOUT, SIGNAL_UNKNOWN, \
     SIGNAL_EMPTY_RECV, SIGNAL_URL_STATUS, SIGNAL_NORMAL, ID_SWITCH, ID_WAIT
 
@@ -15,7 +15,9 @@ import ssl
 import socket
 from time import sleep
 
-https_context = ssl._create_default_https_context()
+
+https_context = ssl._create_unverified_context()
+
 HTTPSConnection = lambda **kwargs: HTTPSConnection_origin(context=https_context, **kwargs)
 
 
@@ -88,10 +90,10 @@ class HTTPClient(AbstractClient):
 
     def retrieve(self):
 
+        self.progress.start()
         self._callback.put_nowait(
             SIGNAL_URL_STATUS(SIGNAL_NORMAL(ClientException(client=self, exception=None)))
         )
-        self.progress.start()
         buff = b''
         while True:
             if not self.__signal.empty():
@@ -142,7 +144,7 @@ class HTTPClient(AbstractClient):
                 del buff
                 buff = b''
 
-        self.progress.__stop_handler()
+        self.progress.stop()
 
     def close(self):
         response = self._response
@@ -154,7 +156,8 @@ class HTTPClient(AbstractClient):
         if response:
             response.close()
         if connection:
-            connection.sock.shutdown(socket.SHUT_RDWR)
+            if connection.sock:
+                connection.sock.shutdown(socket.SHUT_RDWR)
             connection.close()
 
     def getheader(self, name, default=None):
