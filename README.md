@@ -1,50 +1,9 @@
 Nbdler
 ===============
 [![Build Status](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/ZSAIm/Nbdler)
-[![Build Status](https://img.shields.io/badge/pypi-v1.0.0-blue.svg)](https://pypi.org/project/Nbdler/)
+[![Build Status](https://img.shields.io/badge/pypi-v2.0.0-blue.svg)](https://pypi.org/project/Nbdler/)
 
-[Click here](https://github.com/ZSAIm/Nbdler/blob/master/README_EN.md) for the English version. 
-
-Nbdler 是使用Python编写的 的HTTP/HTTPS下载器。
-
-一个简短的例子：
-*****
-
-> 在用法上模仿了``urllib``的使用习惯。
-
-```python
->>> import nbdler
->>> import time
->>> req = nbdler.Request(url='https://dldir1.qq.com/weixin/Windows/WeChatSetup.exe')
->>> dl = nbdler.dlopen(req)
->>> fileinfo = dl.getfileinfo()
->>> fileinfo
-FileInfo(name='WeChatSetup.exe', path='', size=44758872, block_size=524288)
->>> dl.start()
->>> while not dl.is_finish():
-... 	print("instspeed: %f KB/S, remain_time: %f s, %d/%d" % (dl.getinstspeed()/1024, dl.get_remain_time(), dl.getincbyte(), fileinfo.size))
-... 	time.sleep(1)
-... else:
-... 	print('download finished.')
-instspeed: 21234.240212 KB/S, remain_time: 1.543446 s, 49152/44758872
-instspeed: 2819.759705 KB/S, remain_time: 7.684911 s, 5160960/44758872
-instspeed: 2770.697604 KB/S, remain_time: 9.182783 s, 8011776/44758872
-instspeed: 2916.052060 KB/S, remain_time: 9.444060 s, 10797056/44758872
-instspeed: 3010.630393 KB/S, remain_time: 9.092954 s, 13680640/44758872
-instspeed: 2723.848368 KB/S, remain_time: 8.515533 s, 16564224/44758872
-instspeed: 2891.365600 KB/S, remain_time: 7.860457 s, 19382272/44758872
-instspeed: 2872.925135 KB/S, remain_time: 7.059829 s, 22290432/44758872
-instspeed: 2676.442852 KB/S, remain_time: 6.241065 s, 25149440/44758872
-instspeed: 2628.328905 KB/S, remain_time: 5.397935 s, 27983872/44758872
-instspeed: 2915.214162 KB/S, remain_time: 4.533532 s, 30801920/44758872
-instspeed: 2628.635096 KB/S, remain_time: 3.625203 s, 33669120/44758872
-instspeed: 2727.497028 KB/S, remain_time: 2.702176 s, 36536320/44758872
-instspeed: 2679.336099 KB/S, remain_time: 1.780210 s, 39370752/44758872
-instspeed: 2720.844082 KB/S, remain_time: 0.831110 s, 42252120/44758872
-download finished.
->>> dl.close()
-
-```
+Nbdler 是使用Python编写的下载器。
 
 
 # 特征
@@ -53,78 +12,170 @@ download finished.
 * 支持多线程分片下载。
 * 支持多来源地址下载。
 * 支持以子进程模式运行。
-* 具有管理任务下载池。
+* 具有下载任务管理器。
 
 
 # 安装
 
     $ pip install Nbdler
 
-# 更多例子
+# 例子
 
-## 关于``handler``。
-
-对于``nbdler.Request``：
-
-- 使用参数``child_process=True``使得下载任务运行在子进程模式下（默认为False）。
-
-- 使用参数``filepath``来指定下载文件路径（如果文件名省却则由第一条下载地址决定）。
-- 使用参数``max_thread``来限制最大的分片下载线程数（默认5）。
-- 使用参数``max_retries``来限制下载链接的最大重试打开次数。（默认None，即无限制）
-- 使用参数``block_size``来指定对分片的最小切割单元字节大小。（默认512*1024）
-
+## 简单下载任务(Downloader)
 ```python
->>> req = nbdler.Request(filepath='c:/nbdler_saved_path/centos-7-aarch64.iso', max_retries=3, max_thread=32)
+from nbdler import dlopen, Request
+
+request = Request('https://dldir1.qq.com/weixin/Windows/WeChatSetup.exe', max_thread=32,
+                  file_path='./微信安装包.exe')
+dl = dlopen(request)
+dl.start()
 ```
 
-为了实现多来源地址下载，你可以使用方法``put()``，来进行添加更多的地址来源。
-
+### 获取实时下载信息
 ```python
->>> req.put(url='http://mirrors.huaweicloud.com/centos-altarch/7.6.1810/isos/aarch64/CentOS-7-aarch64-NetInstall-1810.iso')
->>> req.put(url='http://mirror.xtom.com.hk/centos-altarch/7.6.1810/isos/aarch64/CentOS-7-aarch64-Minimal-1810.iso')
+# :::::下载实时信息
+# 实时下载速度
+dl.realtime_speed()
+# 平均下载速度
+dl.average_speed()
+# 剩余下载长度
+dl.remaining_length()
+# 剩余估计下载事件
+dl.remaining_time()
+# 已下载长度
+dl.increment_go()
+# 已写入文件长度
+dl.increment_done()
+
+# :::::下载实体信息（以字典形式返回）
+# 文件路径长度等信息
+dl.body.file
+# 下载源信息
+dl.body.url
+# 下载配置信息
+dl.body.config
+# 返回所有实体信息
+dl.body.all
+# 下载块信息()
+# 返回指定索引n的下载块
+dl.body.block_mgr[n]
+# 返回所有的下载块信息
+dl.body.block_mgr.get_all()
 ```
 
-如果你希望下载运行在子进程模式下，可以使用参数``child_process=True``（``dlopen``下的参数优先于``Request``）。
-
+### 下载任务操作/状态
 ```python
->>> dl = nbdler.dlopen(req, child_process=True)
->>> dl.start()
+# :::::下载任务操作
+# 开始（继续）下载任务
+dl.start()
+# 暂停下载任务
+dl.pause()
+# 关闭下载任务，任务成功完成后的关闭处理。
+dl.close()
+# 配置下载文件信息
+dl.config()
+# 速度限制为最大n字节每秒
+dl.speed_limit(n)
+# 阻塞至下载任务运行结束。
+dl.join()
+# 异常错误敏感的下载任务阻塞。下载异常错误会通过调用这个方法抛出。
+dl.trap()
+
+# :::::下载状态
+# 下载任务是否运行中
+dl.is_alive()
+# 下载任务是否已完成
+dl.is_finished()
 ```
 
-如果你希望暂停下载，可以使用``dl.pause()``或者``dl.stop()``，之后可以使用``dl.start()``继续下载。
-
+## 下载管理器(Manager)
 ```python
->>> dl.pause()
->>> dl.start()
+from nbdler import Manager, Request
+
+# 设置最大同时下载任务数量n
+mgr = Manager(maxsize=n)
+request1 = Request('https://dldir1.qq.com/weixin/Windows/WeChatSetup.exe', max_thread=32,
+                   file_path='./微信安装包1.exe')
+request2 = Request('https://dldir1.qq.com/weixin/Windows/WeChatSetup.exe', max_thread=32,
+                   file_path='./微信安装包2.exe')
+
+id1 = mgr.putrequest(request1)
+id2 = mgr.putrequest(request2)
+mgr.start()
 ```
 
-## 关于``manager``。
-
-如果你需要用到下载池，可以使用``nbdler.manager``：
-
-- 使用参数``max_task``设置同时最大下载任务。
-
-- 使用参数``child_process=True``使得下载池工作在子进程模式下（默认False）。
-
+### 获取当前运行中的下载任务实时信息
 ```python
->>> mgr = nbdler.manager(2)
+# :::::下载实时信息
+# 实时下载速度
+mgr.realtime_speed()
+# 平均下载速度
+mgr.average_speed()
+# 剩余下载长度
+mgr.remaining_length()
+# 剩余估计下载事件
+mgr.remaining_time()
+# 已下载长度
+mgr.increment_go()
+# 已写入文件长度
+mgr.increment_done()
+# 以字典形式获取以上所有实时信息
+mgr.realtime_info()
+
+# :::::下载实体信息（以字典形式返回）
+# 文件路径长度等信息
+mgr.body.file
+# 下载源信息
+mgr.body.url
+# 下载配置信息
+mgr.body.config
+# 返回所有实体信息
+mgr.body.all
+# 以字典形式获取以上所有实体信息
+mgr.body_info()
+# 下载块信息()
+# 返回指定索引n的下载块
+mgr.body.block_mgr[n]
+# 返回所有的下载块信息
+mgr.body.block_mgr.get_all()
+
 ```
 
-之后你可以使用``putrequest``往下载池里面进行添加下载请求，添加完成后将返回任务``id号``。
-
+### 获取指定任务ID的信息
 ```python
->>> mgr.putrequest(req)
-0
->>> mgr.putrequest(req1)
-1
->>> mgr.putrequest(req2)
-2
+# 返回任务ID为n的任务的实时速度。
+mgr[n].realtime_speed()
+# 返回任务ID为n和m的实时速度总和。
+mgr[n, m].realtime_speed()
+# 返回所有下载任务的实时速度
+mgr[-2].realtime_speed()
 ```
 
-使用``mgr.start_queue()``就能运行下载池。
-
+### 下载管理器的运行队列信息
 ```python
->>> mgr.start_queue()
+# :::::运行队列
+# 已入列待下载任务ID列表
+mgr.queue.enqueued
+# 运行中的任务ID列表
+mgr.queue.running
+# 已结束的任务ID列表
+mgr.queue.dequeued
+# 处于未确定队列的任务ID列表（正在dlopen打开过程中）
+mgr.queue.unsettled
+
+# :::::状态队列
+# 已就绪的任务ID列表
+mgr.queue.ready
+# 已暂停的任务ID列表
+mgr.queue.paused
+# 正在dlopen打开下载任务的ID列表
+mgr.queue.opening
+# 已开始的下载任务ID列表
+mgr.queue.started
+# 发生错误并且已结束的任务ID列表
+mgr.queue.error
+# 已完成下载的任务ID列表
+mgr.queue.finished
 ```
 
 
@@ -133,11 +184,14 @@ Apache-2.0
 
 # 更新日志
 
+### 2.0.0
+- 重构
+
 ### 1.0.1
 - 修复一些bug。
 
 ### 0.9.9
-- 新的重构。
+- 重构。
 - 添加多进程下载支持。
 
 ### 0.0.1
