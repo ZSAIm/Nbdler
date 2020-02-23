@@ -145,6 +145,8 @@ class TaskManager:
         self._task_mgr = tasks_mgr
         self._subprocess = subprocess
         self._closed = Event()
+        # 初始化后，下载未开始就应是处于关闭状态。
+        self._closed.set()
         self._task_queue = task_queue
         self._running_body = Tasks(tasks_mgr, task_queue, subprocess, task_queue.running, self._closed)
         self._all_body = Tasks(tasks_mgr, task_queue, subprocess, None, self._closed)
