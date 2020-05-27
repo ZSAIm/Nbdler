@@ -2,23 +2,32 @@
 
 from setuptools import setup, find_packages
 import io
+import os
 
-version = '2.0.0'
-author = 'ZSAIm'
-author_email = 'zzsaim@163.com'
+here = os.path.abspath(os.path.dirname(__file__))
+
+about = {}
+with open(os.path.join(here, 'nbdler', 'version.py'), 'r', encoding='utf-8') as f:
+    exec(f.read(), about)
 
 with io.open('README.rst', 'r', encoding='utf-8') as readme:
     long_description = readme.read()
 
+install_requires = [
+    'aiohttp',
+    'requests'
+]
+
+
 setup(
-    name='Nbdler',
-    version=version,
-    description='downloader',
+    name=about['TITLE'],
+    version=about['VERSION'],
+    description=about['DESCRIPTION'],
     long_description=long_description,
-    author=author,
-    author_email=author_email,
-    url='https://github.com/ZSAIm/Nbdler',
-    license='Apache-2.0 License',
+    author=about['AUTHOR'],
+    author_email=about['AUTHOR_EMAIL'],
+    url=about['URL'],
+    license=about['LICENSE'],
     classifiers=[
             'Development Status :: 5 - Production/Stable',
             'Intended Audience :: Developers',
@@ -27,5 +36,5 @@ setup(
             'Programming Language :: Python :: 3',
         ],
     packages=find_packages(),
-    install_requires=['EventDriven'],
+    install_requires=install_requires,
 )
