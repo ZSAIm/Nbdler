@@ -1,6 +1,9 @@
 import time
 from collections import deque
-from asyncio import tasks
+import asyncio
+from contextlib import contextmanager
+import threading
+from concurrent import futures
 
 
 class UsageInfo:
@@ -85,11 +88,81 @@ def update_range_field(range_filed, target_range):
         length=length)
 
 
+class _ExecutorEventLoopFuture:
+    """ 在Executor中安全运行run_forever的事件循环的Future。 """
+    def __init__(self, task_fut, loop_fut):
+        self._loop = loop_fut
+        self._task = task_fut
+
+    def __await__(self):
+        yield from asyncio.wrap_future(self._task)
+
+    def __iter__(self):
+        yield from asyncio.wrap_future(self._task)
+
+    def get_loop(self):
+        return self._loop.result()
+
+    async def aget_loop(self):
+        return await asyncio.wrap_future(self._loop)
+
+    def join(self):
+        return self._task.result()
+
+    async def ajoin(self):
+        return await asyncio.wrap_future(self._task)
+
+    result = join
+
+    aresult = ajoin
+
+    def close(self):
+        loop = self.get_loop()
+        return loop.call_soon_threadsafe(loop.stop)
+
+    async def aclose(self):
+        loop = await self.aget_loop()
+        fut = loop.call_soon_threadsafe(loop.stop)
+        return await asyncio.wrap_future(fut)
+
+    def add_done_callback(self, __fn):
+        return self._task.add_done_callback(__fn)
+
+
+def forever_loop_in_executor(executor, loop=None):
+    """ 在concurrent.futures.thread.ThreadPoolExecutor中运行异步事件循环。
+    该事件循环线程只能使用loop.stop()方法停止。"""
+    def _run():
+        nonlocal loop, future_loop
+        if loop is None:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    raise RuntimeError('new loop')
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        future_loop.set_result(loop)
+        try:
+            loop.run_forever()
+        finally:
+            try:
+                cancel_all_tasks(loop)
+                loop.run_until_complete(loop.shutdown_asyncgens())
+            finally:
+                loop.close()
+
+    future_loop = futures.Future()
+    task_fut = executor.submit(_run)
+    return _ExecutorEventLoopFuture(task_fut, future_loop)
+
+
 def cancel_all_tasks(loop):
     """ 关闭循环中剩余的所有任务。 """
     # source from asyncio.runners._cancel_all_tasks
 
-    to_cancel = tasks.all_tasks(loop)
+    to_cancel = asyncio.tasks.all_tasks(loop)
     if not to_cancel:
         return
 
@@ -97,7 +170,7 @@ def cancel_all_tasks(loop):
         task.cancel()
 
     loop.run_until_complete(
-        tasks.gather(*to_cancel, loop=loop, return_exceptions=True))
+        asyncio.tasks.gather(*to_cancel, loop=loop, return_exceptions=True))
 
     for task in to_cancel:
         if task.cancelled():

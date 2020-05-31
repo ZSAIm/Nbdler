@@ -4,6 +4,7 @@ import mimetypes
 import os
 import asyncio
 from concurrent.futures.thread import ThreadPoolExecutor
+from .utils import forever_loop_in_executor
 
 from .download import Downloader
 from .client import get_policy
@@ -20,13 +21,13 @@ __all__ = [
 ]
 
 
-def dlopen(request, handlers=None, *, do_async=True, executor=None):
+def dlopen(request, handlers=None, *, do_async=True, executors=None):
     """ 打开下载请求Request对象，并构造返回Downloader。
     Args:
         request: 下载请求对象或下载配置文件路径。
         handlers: 添加的Handler对象列表，仅适用于打开下载配置文件
         do_async: 是否使用异步打开
-        executor: 使用指定的concurrent.future.thread打开，默认新创线程执行。
+        executors: 使用指定的concurrent.futures.thread打开，默认新创线程执行。
     """
     async def open_request():
         # 打开请求Request对象
@@ -100,35 +101,32 @@ def dlopen(request, handlers=None, *, do_async=True, executor=None):
         else:
             return await open_cfg()
 
-    def get_event_loop():
-        try:
-            _loop = asyncio.get_running_loop()
-        except RuntimeError:
-            _loop = asyncio.new_event_loop()
-        return _loop
-
-    def done_callback(fut):
-        if new_executor:
-            executor_loop.close()
-            executor.shutdown(False)
+    def callback(fut):
+        executors.shutdown(False)
 
     new_executor = False
-    if executor is None:
-        executor = ThreadPoolExecutor(
+    if executors is None:
+        executors = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix='Nbdler.dlopen() Worker')
         new_executor = True
 
-    executor_loop = executor.submit(get_event_loop).result()
+    exec_fut = forever_loop_in_executor(executors)
+    if new_executor:
+        exec_fut.add_done_callback(callback)
 
+    loop = exec_fut.get_loop()
     if do_async:
-        future = asyncio.get_running_loop().run_in_executor(
-            executor, executor_loop.run_until_complete, do_open())
+        def done_stop_loop(fut):
+            nonlocal exec_fut
+            exec_fut.close()
+
+        future = asyncio.wrap_future(
+            asyncio.run_coroutine_threadsafe(do_open(), loop=loop))
+        future.add_done_callback(done_stop_loop)
         result = _AsyncDownloadOpenContextManager(future)
     else:
-        future = executor.submit(
-            executor_loop.run_until_complete, do_open())
-        result = future.result()
-    future.add_done_callback(done_callback)
+        result = exec_fut.result()
+        exec_fut.close()
     return result
 
 

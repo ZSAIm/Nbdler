@@ -1,7 +1,7 @@
 import asyncio
 from collections import defaultdict
 from contextvars import ContextVar
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from concurrent.futures.thread import ThreadPoolExecutor
 from nbdler.error import HandlerError, ClientError
 from functools import partial
@@ -93,31 +93,21 @@ class _HandlerReference(threading.local):
     def owner(self):
         return self.__context__.get()
 
-    def enter(self, handlers, loop):
-        self.set_loop(loop)
-        self.set_ref(handlers)
-        return self
+    @contextmanager
+    def enter(self, handlers, loop=None):
+        assert self._loop or loop
+        if loop:
+            if not isinstance(loop, weakref.ProxyType):
+                loop = weakref.proxy(loop)
+            self._loop = loop
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.clear_ref()
-        self._loop = None
-
-    def set_loop(self, loop):
-        if not isinstance(loop, weakref.ProxyType):
-            loop = weakref.proxy(loop)
-        self._loop = loop
-
-    def set_ref(self, handlers):
-        self.clear_ref()
         if not isinstance(handlers, weakref.ProxyType):
             handlers = weakref.proxy(handlers)
-        self.__context__.set(handlers)
 
-    def clear_ref(self):
-        self.__context__.set(None)
+        token = self.__context__.set(handlers)
+
+        yield self
+        self.__context__.reset(token)
 
     def __getattr__(self, item):
         return self.__context__.get()[item]

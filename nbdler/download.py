@@ -1,12 +1,19 @@
 
 from concurrent.futures.thread import ThreadPoolExecutor
 from nbdler.handler import (
-    SpeedAdjuster, AIOReaderWriter, BlockSlicer, FileTempData,
-    ClientWorker, URIStatusManager, GatherException,
+    SpeedAdjuster,
+    AIOReaderWriter,
+    BlockSlicer,
+    FileTempData,
+    ClientWorker,
+    URIStatusManager,
+    GatherException,
     h, Handlers)
 from .client import get_policy, ClientPolicy
 from .version import VERSION
-from .utils import cancel_all_tasks
+from .utils import forever_loop_in_executor
+import weakref
+import warnings
 import asyncio
 import os
 
@@ -102,7 +109,7 @@ class Downloader:
             if isinstance(handler, type):
                 handler = handler()
 
-            handler.add_parent(self)
+            handler.add_parent(weakref.proxy(self))
             self._handlers[handler.name] = handler
 
     def exceptions(self, exception_type=None, *, just_new_exception=True):
@@ -174,23 +181,6 @@ class Downloader:
         Returns:
             返回下载器运行的concurrent.future.Future对象
         """
-        def _get_event_loop():
-            try:
-                _loop = asyncio.get_running_loop()
-            except RuntimeError:
-                _loop = asyncio.new_event_loop()
-            return _loop
-
-        def mainloop_run():
-            try:
-                loop.run_forever()
-            finally:
-                try:
-                    cancel_all_tasks(loop)
-                    loop.run_until_complete(loop.shutdown_asyncgens())
-                finally:
-                    loop.close()
-            self._executor.shutdown(False)
 
         if self._closed:
             raise RuntimeError('Downloader is already closed.')
@@ -198,11 +188,20 @@ class Downloader:
         if self.block_grp.is_finished():
             raise RuntimeError('download is already finished.')
 
+        if self._loop is not None:
+            loop = self._loop
+
         if loop is None:
-            self._executor = ThreadPoolExecutor(
+            def cb(f):
+                nonlocal executor
+                executor.shutdown(False)
+
+            executor = ThreadPoolExecutor(
                 max_workers=1, thread_name_prefix=f'Downloader {self.file.name} {self.file.size}')
-            loop = self._executor.submit(_get_event_loop).result()
-            self._executor.submit(mainloop_run)
+            exec_fut = forever_loop_in_executor(executor)
+            exec_fut.add_done_callback(cb)
+            self._executor = executor
+            loop = exec_fut.get_loop()
 
         fut = asyncio.run_coroutine_threadsafe(self.astart(), loop=loop)
         self._loop = loop
@@ -212,10 +211,9 @@ class Downloader:
         """ 异步暂停等待。"""
         if self._closed:
             raise RuntimeError('Downloader is already closed.')
-        with h.enter(self._handlers, self._loop):
-            result = await self._await_loopsafe(self._handlers.pause())
-            await self.ajoin()
-            return result
+        result = await self._await_loopsafe(self._handlers.pause())
+        await self.ajoin()
+        return result
 
     async def aclose(self):
         """ 异步关闭下载器。"""
@@ -224,35 +222,34 @@ class Downloader:
 
         if not self._future.done():
             raise RuntimeError('cannot close a running Downloader.')
-        with h.enter(self._handlers, self._loop):
-            result = await self._await_loopsafe(self._handlers.close())
-            await self.ajoin()
-            self._closed = True
+        result = await self._await_loopsafe(self._handlers.close())
+        await self.ajoin()
+        self._closed = True
 
-            if self._executor:
-                self._loop.call_soon_threadsafe(self._loop.stop)
+        if self._executor:
+            self._loop.call_soon_threadsafe(self._loop.stop)
 
-            # 若文件已完毕，去除.downloading后缀
-            if self.block_grp.is_done_finished():
-                file = self.file
-                filepath = f'{file.pathname}{self.config.downloading_ext}'
-                start_filepath = file.pathname
-                target_filepath = start_filepath
-                postfix = 0
-                while True:
-                    try:
-                        os.rename(filepath, target_filepath)
-                    except FileExistsError:
-                        postfix += 1
-                        target_filepath = os.path.join(file.path, file.number_name(postfix))
-                    else:
-                        if postfix != 0:
-                            file.name = file.number_name(postfix)
-                        break
+        # 若文件已完毕，去除.downloading后缀
+        if self.block_grp.is_done_finished():
+            file = self.file
+            filepath = f'{file.pathname}{self.config.downloading_ext}'
+            start_filepath = file.pathname
+            target_filepath = start_filepath
+            postfix = 0
+            while True:
+                try:
+                    os.rename(filepath, target_filepath)
+                except FileExistsError:
+                    postfix += 1
+                    target_filepath = os.path.join(file.path, file.number_name(postfix))
+                else:
+                    if postfix != 0:
+                        file.name = file.number_name(postfix)
+                    break
 
-                # 删除下载配置文件
-                os.unlink(f'{start_filepath}{self.config.downloading_ext}.cfg')
-            return result
+            # 删除下载配置文件
+            os.unlink(f'{start_filepath}{self.config.downloading_ext}.cfg')
+        return result
 
     async def ajoin(self):
         """ 异步等待下载器结束。"""
@@ -275,18 +272,12 @@ class Downloader:
             loop = current_loop
 
         async def _execute_loop():
-            nonlocal fut
-            r = await asyncio.gather(*coros_or_futures)
-            # 跨线程回调
-            current_loop.call_soon_threadsafe(fut.set_result, r)
-            return r
+            with h.enter(self._handlers):
+                r = await asyncio.gather(*coros_or_futures)
+                return r
+        fut = asyncio.run_coroutine_threadsafe(_execute_loop(), loop)
+        result = await asyncio.wrap_future(fut)
 
-        if current_loop == loop:
-            result = await asyncio.gather(*coros_or_futures, loop=loop)
-        else:
-            fut = current_loop.create_future()
-            asyncio.run_coroutine_threadsafe(_execute_loop(), loop)
-            result = await fut
         return result
 
     def _call_threadsafe(self, coroutine, timeout=None):
@@ -381,3 +372,9 @@ class Downloader:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         return await self.aclose()
+
+    def __del__(self, _warnings=warnings):
+        if not self._closed:
+            self.close()
+
+

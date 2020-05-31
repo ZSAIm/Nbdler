@@ -68,11 +68,11 @@
 
 
 """
-from nbdler.utils import UsageInfo
+from .utils import UsageInfo
 from math import ceil
 from threading import RLock
 from time import time
-from nbdler.progress import Progress
+from .progress import Progress
 import bisect
 
 
@@ -401,4 +401,4 @@ class BlockGroup:
 
     def __repr__(self):
         return f'<BlockGroup transfer_rate={round(self.transfer_rate() / 1024)} kb/s ' \
-               f'percent={round(self.percent_complete() * 100, 2)}%>'
+               f'percent={round(self.percent_complete(), 2)}%>'
