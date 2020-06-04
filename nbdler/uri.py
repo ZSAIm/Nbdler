@@ -1,7 +1,30 @@
-from wsgiref.headers import Headers
+from wsgiref.headers import Headers as _Headers
 from urllib.parse import urlparse
 from base64 import b64decode
-from typing import AnyStr, Sequence
+from typing import AnyStr, Sequence, Optional, Union, Mapping
+
+
+class Headers(_Headers):
+    """ 解决wsgiref.headers键值类型不支持基于str的类型。
+    强制转换成str，避免抛出异常。"""
+    def __init__(self, headers: Optional[Union[Sequence, Mapping]]=None):
+        if headers is None:
+            headers = []
+        elif isinstance(headers, dict):
+            headers = list(headers.items())
+        elif isinstance(headers, list):
+            headers = list(headers)
+        else:
+            raise TypeError()
+
+        super().__init__(headers)
+
+    def _convert_string_type(self, value):
+        """Convert/check value type."""
+        if type(value) is str:
+            return value
+        
+        return str(value)
 
 
 class BaseURI:
@@ -9,15 +32,7 @@ class BaseURI:
         self._uri = None
         self._urlparse = None
 
-        if headers is None:
-            headers = Headers([])
-        elif isinstance(headers, dict):
-            headers = Headers(list(headers.items()))
-        elif isinstance(headers, list):
-            headers = Headers(headers)
-        else:
-            raise TypeError()
-        self.headers = headers
+        self.headers = Headers(headers)
         self.uri = uri
 
     @property
