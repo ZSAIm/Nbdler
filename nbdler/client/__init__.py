@@ -56,10 +56,6 @@ class ProtocolSolution:
     def dlopen(self):
         return self._module.ClientHandler.dlopen
 
-    @property
-    def adlopen(self):
-        return self._module.ClientHandler.adlopen
-
     def get_client(self, *args, **kwargs):
         return self._module.ClientHandler(*args, **kwargs)
 
