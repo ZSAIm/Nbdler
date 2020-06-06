@@ -193,7 +193,8 @@ class GatherException(Handler):
             exception:  发生的异常对象
         """
         with self._cond:
-            self._exceptions[HandlerError].append(format_exc())
+            self._exceptions[HandlerError].append(
+                HandlerError(exception, format_exc()))
             # 释放线程锁
             self._cond.notify_all()
 
@@ -208,7 +209,8 @@ class GatherException(Handler):
             exception:  发生的异常对象
         """
         with self._cond:
-            self._exceptions[ClientError].append(format_exc())
+            self._exceptions[ClientError].append(
+                ClientError(exception, format_exc()))
             # 释放线程锁
             self._cond.notify_all()
             # 释放异步锁
@@ -587,7 +589,7 @@ class ClientWorker(Handler):
                 if block_group.is_walk_finished():
                     missing = block_group.integrity_check()
                     if missing:
-                        h.exception.handler_error(f'Missing Blocks: {missing}')
+                        h.exception.handler_error(RuntimeError(f'Missing Blocks: {missing}'))
                     if unfinished_blocks:
                         await work_queue.put(unfinished_blocks.pop(0))
                         continue

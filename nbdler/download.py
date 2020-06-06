@@ -155,7 +155,7 @@ class Downloader:
             try:
                 return await hd.start()
             except BaseException as err:
-                h.exception.handler_error(format_exc())
+                h.exception.handler_error(err)
                 self.pause(0)
 
         with h.enter(self._handlers, loop):
