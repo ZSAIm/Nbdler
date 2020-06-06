@@ -1,7 +1,7 @@
 Nbdler
 ===============
 [![Build Status](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/ZSAIM/Nbdler)
-[![Build Status](https://img.shields.io/badge/pypi-v3.0.2-blue.svg)](https://pypi.org/project/Nbdler/)
+[![Build Status](https://img.shields.io/badge/pypi-v3.0.3-blue.svg)](https://pypi.org/project/Nbdler/)
 
 Nbdler 是由Python3 编写的异步多客户端、多来源下载工具。
 
