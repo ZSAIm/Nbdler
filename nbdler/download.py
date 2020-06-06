@@ -12,6 +12,7 @@ from nbdler.handler import (
 from .client import get_policy, ClientPolicy
 from .version import VERSION
 from .utils import forever_loop_in_executor
+from traceback import format_exc
 import weakref
 import warnings
 import asyncio
@@ -154,7 +155,8 @@ class Downloader:
             try:
                 return await hd.start()
             except BaseException as err:
-                h.exception.handler_error(err)
+                h.exception.handler_error(format_exc())
+                self.pause(0)
 
         with h.enter(self._handlers, loop):
             self.block_grp.activate()
