@@ -138,9 +138,10 @@ class Handler:
         loop = asyncio.get_running_loop()
         future = loop.create_future()
         self._future = future
-
-        result = await self.run()
-        future.set_result(result)
+        try:
+            result = await self.run()
+        finally:
+            future.set_result(None)
 
     async def run(self, *args, **kwargs):
         raise NotImplementedError
@@ -183,7 +184,7 @@ class GatherException(Handler):
         # async 异步异常获取回调
         self._waiter_callbacks = set()
 
-        self._stopped = True
+        self._stopped = False
 
     def handler_error(self, exception):
         """ 推送handler异常
@@ -280,11 +281,17 @@ class GatherException(Handler):
         Yields:
             内部出现的client或handler异常对象。
         """
-        loop = asyncio.get_running_loop()
+        def release_waiter():
+            nonlocal cond, loop
 
+            async def _release():
+                async with cond:
+                    cond.notify_all()
+            asyncio.run_coroutine_threadsafe(_release(), loop=loop)
+
+        loop = asyncio.get_running_loop()
         cond = asyncio.Condition(asyncio.Lock())
-        self._waiter_callbacks.add(
-            partial(loop.call_soon_threadsafe, cond.notify_all))
+        self._waiter_callbacks.add(release_waiter)
 
         old_exc_list = []
         if not just_new_exception:
@@ -327,6 +334,9 @@ class GatherException(Handler):
         self._stopped = True
         with self._cond:
             self._cond.notify_all()
+
+        for waiter in self._waiter_callbacks:
+            waiter()
 
     def __repr__(self):
         count = {k: len(v) for k, v in self._exceptions.items()}
@@ -439,7 +449,7 @@ class URIStatusManager(Handler):
     def __init__(self):
         self._uri_status = {}
         self._cond = None
-        self._stopped = True
+        self._stopped = False
 
     async def prepare(self):
         self._cond = asyncio.Condition()
@@ -523,12 +533,11 @@ class ClientWorker(Handler):
         self._block_queue = None
         self._working_blocks = set()
         self._client_session = {}
-        self._stopped = True
+        self._stopped = False
         self._executors = None
         self._tasks = set()
 
     async def prepare(self):
-        assert self._stopped
         self._stopped = False
 
         self._block_queue = asyncio.Queue()
@@ -1003,9 +1012,9 @@ class FileTempData(Handler):
                     pg.done(sum([len(line) for line in lines]))
 
                 # 删除引用，尽快回收垃圾
-                lines = None
-                result = None
-                buffers = None
+                del lines
+                del result
+                del buffers
                 await self.saving_state()
                 unreleased.task_done()
 
