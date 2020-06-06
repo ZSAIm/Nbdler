@@ -1,7 +1,7 @@
 Nbdler
 ===============
 [![Build Status](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/ZSAIM/Nbdler)
-[![Build Status](https://img.shields.io/badge/pypi-v3.0.0-blue.svg)](https://pypi.org/project/Nbdler/)
+[![Build Status](https://img.shields.io/badge/pypi-v3.0.2-blue.svg)](https://pypi.org/project/Nbdler/)
 
 Nbdler 是由Python3 编写的异步多客户端、多来源下载工具。
 
@@ -81,7 +81,7 @@ Apache-2.0
 
 # TODO
 
-- 完善使用文档。
-- 实现Handler处理器 - SampleValidate 保证多来源下载时的资源匹配。
-- 实现DownloadSession，以便实现下载器的进程隔离，同时实现RPC进程通信。
-- 支持FTP协议。
+- [ ] 完善使用文档。
+- [ ] 实现Handler处理器(SampleValidate 保证多来源下载时的资源匹配)。
+- [ ] 实现DownloadSession(以便实现下载器的进程隔离，同时实现RPC进程通信)。
+- [ ] 支持FTP协议。
