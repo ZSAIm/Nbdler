@@ -23,7 +23,7 @@ class Headers(_Headers):
         """Convert/check value type."""
         if type(value) is str:
             return value
-        
+
         return str(value)
 
 
