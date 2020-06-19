@@ -125,7 +125,8 @@ def dlopen(request, handlers=None, *, do_async=True, executors=None):
         future.add_done_callback(done_stop_loop)
         result = _AsyncDownloadOpenContextManager(future)
     else:
-        result = exec_fut.result()
+        future = asyncio.run_coroutine_threadsafe(do_open(), loop=loop)
+        result = future.result()
         exec_fut.close()
     return result
 
